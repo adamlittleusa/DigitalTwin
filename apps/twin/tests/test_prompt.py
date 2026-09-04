@@ -54,3 +54,60 @@ def test_prompt_names_the_person() -> None:
 def test_empty_knowledge_still_builds() -> None:
     text = build_system_prompt(Knowledge(files=()))
     assert pm.ROLE_INSTRUCTIONS.strip() in text
+
+
+def test_each_file_is_wrapped_in_a_section_element() -> None:
+    text = build_system_prompt(SAMPLE)
+    expected = (
+        '<section kind="identity" title="Identity">\n'
+        "## Identity (identity)\n\n"
+        "Adam is a security leader.\n"
+        "</section>"
+    )
+    assert expected in text
+
+
+def test_role_body_headings_stay_inside_their_section() -> None:
+    two = Knowledge(files=(
+        kf("role", "New", "## Context\n\nNew co.", period="2023-07 to present"),
+        kf("role", "Old", "## Context\n\nOld co.", period="2018-07 to 2022-08"),
+    ))
+    text = build_system_prompt(two)
+    new_start = text.index('<section kind="role" title="New">')
+    new_end = text.index("</section>", new_start)
+    old_start = text.index('<section kind="role" title="Old">')
+    assert new_start < new_end < old_start
+    assert "New co." in text[new_start:new_end]
+    assert "Old co." not in text[new_start:new_end]
+
+
+def test_sections_are_separated_by_blank_lines() -> None:
+    text = build_system_prompt(SAMPLE)
+    assert '\n\n<section kind="identity"' in text
+    assert '</section>\n\n<section kind="role"' in text
+
+
+def test_built_prompt_carries_the_tool_rules() -> None:
+    text = build_system_prompt(SAMPLE)
+    for tool in ("record_unknown_question", "record_sensitive_question", "record_user_details"):
+        assert tool in text
+
+
+def test_rules_state_tool_precedence_and_voice() -> None:
+    assert "boundaries section first" in pm.RULES
+    assert "never call both" in pm.RULES
+    assert "As an AI language model" in pm.RULES
+    assert "Never use code blocks" in pm.RULES
+
+
+def test_role_instructions_explain_sections_and_periods() -> None:
+    assert "<section>" in pm.ROLE_INSTRUCTIONS
+    assert "newest first" in pm.ROLE_INSTRUCTIONS
+    assert '"present"' in pm.ROLE_INSTRUCTIONS
+
+
+def test_empty_knowledge_omits_the_knowledge_heading() -> None:
+    text = build_system_prompt(Knowledge(files=()))
+    assert pm.KNOWLEDGE_HEADING not in text
+    assert text.startswith(pm.ROLE_INSTRUCTIONS.strip())
+    assert text.rstrip().endswith(pm.RULES.strip())
