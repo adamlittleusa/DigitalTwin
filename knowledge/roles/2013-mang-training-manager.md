@@ -23,3 +23,5 @@ Served as the senior experienced intelligence collector and operations manager f
 Operations management, training program management, readiness planning, logistics, advising senior leadership.
 
 ## Why I moved on
+
+Around 2016 Adam started thinking about what he wanted to do after retiring from the Army. He knew it would be cybersecurity; the question was how to make the analog-to-digital jump, and the answer came at Fort Devens in 2017.

@@ -8,7 +8,7 @@ public: true
 
 ## Context
 
-Revelstoke was a security orchestration, automation, and response (SOAR) company. Adam joined as a Solutions Architect focused on cyber threat intelligence, working remotely. The company was acquired during his time there.
+Revelstoke was a security orchestration, automation, and response (SOAR) company. Adam joined as a Solutions Architect focused on cyber threat intelligence, working remotely. It was the second of the CTI leadership roles he took after Recorded Future to learn what it takes to build these programs operationally, from scratch. The company was acquired during his time there.
 
 ## What I did
 

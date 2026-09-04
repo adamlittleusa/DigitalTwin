@@ -8,7 +8,7 @@ public: true
 
 ## Context
 
-Pondurance provides a managed detection and response (MDR) service. Adam joined as Cyber Threat Intelligence Program Manager, working remotely.
+Pondurance provides a managed detection and response (MDR) service. Adam joined as Cyber Threat Intelligence Program Manager, working remotely. It was the first of the CTI leadership roles he took after Recorded Future to learn what it takes to build these programs operationally, for real, from scratch.
 
 ## What I did
 

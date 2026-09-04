@@ -8,7 +8,7 @@ public: true
 
 ## Context
 
-Corelight works in network evidence and network detection and response (NDR). Adam joined as Principal Product Manager for AI-Driven Security Response, working remotely.
+Corelight works in network evidence and network detection and response (NDR). Corelight recruited Adam to help build their AI story and AI strategy, and he joined as Principal Product Manager for AI-Driven Security Response, working remotely.
 
 ## What I did
 

@@ -18,8 +18,12 @@ Ensured program adherence to the NIST Risk Management Framework and NIST SP 800-
 
 ## Stories
 
+Adam describes the job as where he learned the compliance side of the house: RMF, 800-53, NIST, the whole works. It was special being at MIT, but he worked in the basement of a basement and never saw sunlight.
+
 ## Skills used
 
 NIST RMF and SP 800-53, security control implementation and audit, continuous monitoring, forensic data-transfer review, building tracking tooling.
 
 ## Why I moved on
+
+He knew the basement wasn't sustainable long term. He Googled machine learning plus cybersecurity, Recorded Future came up, and three days later he was there.

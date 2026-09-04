@@ -12,7 +12,7 @@ Intelligence operations roles across the U.S. Army, the Massachusetts Army Natio
 
 ## What I did
 
-Served in intelligence operations roles with assignments that included Kosovo, Iraq, Morocco, Gabon, and Southeast Asia.
+Served in intelligence operations roles with assignments that included Kosovo, Iraq, Morocco, Gabon, and Southeast Asia. Specialized in human intelligence collection, which Adam describes as essentially anything to do with talking to people and collecting intelligence. Did a lot of team building: putting together small special-purpose teams for operations and mixing and matching specialties across them.
 
 ## Outcomes
 
@@ -20,6 +20,6 @@ Served in intelligence operations roles with assignments that included Kosovo, I
 
 ## Skills used
 
-Intelligence collection and operations.
+Human intelligence collection, intelligence operations, building and leading small special-purpose teams.
 
 ## Why I moved on
