@@ -1,0 +1,342 @@
+# Digital Twin: Foundation and Knowledge Base
+
+**Date:** 2026-09-04
+**Status:** Approved by Adam, pending spec review
+**Owner:** Adam Little
+
+## 1. Goal
+
+Make the digital twin know Adam the way a close colleague does, and give the
+project a foundation the rest of the portfolio can build on. After this work:
+
+- The twin's knowledge comes from curated markdown files written from Adam's
+  own narration and reviewed by him, not from a scraped LinkedIn page.
+- The code lives in a public monorepo laid out to receive the FastAPI service
+  and the Next.js site in later specs.
+- A test suite and an eval set exist so every change to the knowledge or the
+  prompt can be checked in minutes.
+
+## 2. Context
+
+The starting point is the Ed Donner course app in
+`C:\Users\adaml\OneDrive\Desktop\PortfolioProjects\twin`: a Gradio
+`ChatInterface`, an OpenAI chat-completions tool loop, two Pushover tools
+(`record_user_details`, `record_unknown_question`), and a system prompt that
+embeds `summary.txt` plus the raw text of `linkedin.pdf`.
+
+Problems this spec fixes:
+
+- The LinkedIn text is a browser print of the profile page. It contains ads,
+  "people you may know" blocks, and every role description is truncated at
+  "...more". The twin knows less than the resume.
+- Nothing runs: no git repo, no virtual environment, no `.env`, `gradio` not
+  installed.
+- Tool failures and missing environment variables crash the chat with raw
+  tracebacks.
+
+## 3. Decisions already made
+
+These were settled in the brainstorming session and are inputs, not open
+questions:
+
+| Decision | Choice |
+|---|---|
+| Overall architecture | Custom Next.js site on Vercel at adambuilds.ai, plus a Python API holding the twin. Later specs. |
+| Repo visibility | One public monorepo. Knowledge files are committed and are public-safe by rule. The remote is Adam's existing `adamlittleusa/DigitalTwin` repo; nothing is pushed until Adam says the project is ready to deploy. |
+| Repo location | `C:\Users\adaml\code\adambuilds`, outside OneDrive. |
+| Knowledge representation | Curated markdown loaded whole into the system prompt. RAG rejected as overkill at this size. |
+| Narration method | Adam's practiced interview monologue first, then a structured role-by-role interview in chat to fill gaps. |
+| Model and provider | Unchanged: OpenAI chat completions, `gpt-5.4-mini`, read from config. |
+
+## 4. Scope
+
+**In scope**
+
+1. Monorepo skeleton, Python project managed with `uv`, `.env.example`,
+   `.gitignore`, README.
+2. Knowledge base: file conventions, loader, the first set of files drafted
+   from the resume and monologue, and the interview workflow.
+3. Refactor of the twin into a small package with injectable dependencies,
+   config validation, and error handling. Gradio kept as the local dev UI.
+4. Unit tests and an eval runner.
+5. Local git history only. `origin` points at Adam's existing
+   `adamlittleusa/DigitalTwin` repo, and the first push happens when Adam
+   decides the project is ready to deploy. Knowledge files are pushed only
+   after Adam has reviewed them.
+
+**Out of scope, each gets its own spec**
+
+- FastAPI service, streaming, rate limiting, the portfolio guide tool.
+- Next.js site, design system, custom chat UI.
+- Hosting and DNS.
+- Voice transcription tooling.
+- LLM-as-judge evals.
+
+## 5. Repository layout
+
+```
+adambuilds/
+  README.md
+  .gitignore                 ignores .env, knowledge/raw/, private/, .venv/
+  .env.example
+  apps/
+    twin/
+      pyproject.toml         uv-managed; Python 3.13 pinned via .python-version
+      app_gradio.py          local dev UI, wires the package and launches Gradio
+      styles.py              Gradio CSS/JS from the course app, dev only
+      twin/
+        __init__.py
+        config.py            Settings from environment, validated at startup
+        knowledge.py         loads and validates knowledge/*.md
+        prompt.py            assembles the system prompt
+        tools.py             tool schemas, handlers, dispatch
+        agent.py             the completion loop
+      tests/
+        test_config.py
+        test_knowledge.py
+        test_prompt.py
+        test_tools.py
+        test_agent.py
+        test_evals.py        integration, skipped without OPENAI_API_KEY
+    web/
+      .gitkeep               Next.js arrives in a later spec
+  knowledge/                 the twin's memory of Adam (see section 6)
+    README.md                conventions and the coverage table
+    raw/                     gitignored: monologue transcript, interview notes
+  evals/
+    twin_qa.yaml
+  private/                   gitignored: notes for Claude that never reach the twin
+  docs/
+    superpowers/specs/
+```
+
+The course folder in OneDrive is copied, not moved. Adam can delete it once
+the new repo runs.
+
+## 6. Knowledge base
+
+### 6.1 File conventions
+
+Every file under `knowledge/` except `README.md` and `raw/` is a markdown
+document with YAML frontmatter, parsed with the `python-frontmatter` package.
+
+```yaml
+---
+title: Recorded Future
+kind: role            # identity | voice | boundaries | arc | role | topic | project | faq
+period: 2018-07 to 2022-08   # required for role and project, absent otherwise
+tags: [cti, product-architecture, data-science]
+public: true          # required, must be exactly true
+reviewed: 2026-09-10  # date Adam last reviewed the file; absent until he has
+---
+```
+
+Rules enforced by the loader:
+
+- `public: true` is required. The loader raises `KnowledgeError` naming every
+  file that fails, and the app does not start. This is how "public-safe by
+  rule" is enforced rather than remembered.
+- `kind` must be one of the eight values above.
+- `period` is required for `role` and `project` and must parse as
+  `YYYY-MM to YYYY-MM` or `YYYY-MM to present`.
+- Body must be non-empty.
+
+### 6.2 File inventory
+
+| Path | Kind | Contents |
+|---|---|---|
+| `identity.md` | identity | One paragraph on who Adam is today, where he lives, what he is building, how to get in touch (the contact flow, not raw details). |
+| `voice.md` | voice | How Adam talks: tone, phrases he uses, things he would never say, three sample answers in his voice. Drafted from the monologue. |
+| `boundaries.md` | boundaries | What the twin declines to discuss and the deflection it uses. Draft defaults for Adam to edit: compensation, negative comments on employers or colleagues, operational military detail beyond the resume, client names not already public, personal contact details, politics and religion. |
+| `career-arc.md` | arc | The through-line of the career as the monologue tells it. |
+| `roles/YYYY-slug.md` | role | One per role, nine files from Army intel ops (2001) through Corelight (2026). Sections: Context, What I did, Outcomes, Stories, Skills used, Why I moved on. |
+| `topics/slug.md` | topic | Adam's positions on AI security, CTI, product management, and whatever the interviews surface. |
+| `projects/slug.md` | project | One per portfolio project, starting with `digital-twin.md`: what, why, stack, status, link. The future guide tool reads these. |
+| `faq.md` | faq | Common visitor questions with approved answers. |
+
+Sections inside a role file are headings, not frontmatter, so Adam can write
+freely. A role file may leave a section empty while it is still being
+interviewed; the coverage table in `knowledge/README.md` tracks that.
+
+### 6.3 Loading order
+
+The loader returns files in this order, and the prompt builder preserves it:
+identity, voice, boundaries, arc, roles newest first by `period` start,
+topics by filename, projects by filename, faq. Files of the same kind that are
+not roles sort by filename.
+
+### 6.4 Size budget and upgrade path
+
+The loader logs an estimated token count (characters divided by four) and
+emits a warning above 60,000. That warning is the trigger to move to the
+"core profile plus lookup tool" design. Because every file is self-contained
+with metadata, that upgrade is a new tool plus a change to the prompt builder,
+not a rewrite of the knowledge.
+
+## 7. Narration and interview workflow
+
+1. **Monologue.** Adam delivers his practiced resume monologue in chat. It is
+   saved verbatim to `knowledge/raw/2026-09-04-monologue.md`.
+2. **Seed drafts.** Claude drafts `identity.md`, `voice.md`, `career-arc.md`,
+   `boundaries.md`, `faq.md`, `projects/digital-twin.md`, and all nine role
+   files from the monologue plus the 2026 resume. Anything not stated in a
+   source is left as an empty section, never invented.
+3. **Coverage table.** `knowledge/README.md` gets a table with one row per
+   file and columns Seeded, Interviewed, Reviewed. Claude fills Seeded.
+4. **Interview.** Role by role, newest first, in chat. Each role gets the
+   same six prompts: why you joined and what the company does, the work,
+   outcomes and numbers, two or three stories, what you learned, why you
+   moved on. Answers are appended verbatim to
+   `knowledge/raw/interviews/<role-slug>.md` and folded into the role file.
+   Topic and FAQ material that surfaces goes to its own file.
+5. **Review gate.** Adam reads every file before it is committed and sets
+   the `reviewed` date. Files without a `reviewed` date are not pushed to
+   GitHub.
+
+## 8. Twin application changes
+
+### 8.1 Modules
+
+| Module | Responsibility | Public interface |
+|---|---|---|
+| `config.py` | Read environment, validate, expose an immutable `Settings`. | `Settings.from_env() -> Settings`; raises `ConfigError` listing every missing required variable. |
+| `knowledge.py` | Find, parse, validate, order knowledge files. | `load_knowledge(root: Path) -> Knowledge`; `Knowledge` is a frozen dataclass holding a tuple of `KnowledgeFile` (path, meta, body). |
+| `prompt.py` | Build the system prompt from `Knowledge`. | `build_system_prompt(knowledge: Knowledge) -> str`. Pure function. |
+| `tools.py` | Tool schemas, handlers, dispatch. | `ToolRegistry` protocol with `schemas` and `call(name, args) -> str`; `PushoverTools` implementation; `dispatch(registry, tool_calls) -> list[dict]`. |
+| `agent.py` | The chat-completions loop. | `TwinAgent(client, settings, system_prompt, tools)`; `reply(history, message) -> str`. |
+| `app_gradio.py` | Wire the above, launch the dev UI. | `main()`. |
+
+Every dependency that touches the network (OpenAI client, Pushover) is passed
+in, never constructed inside the module that uses it, so tests and evals can
+substitute fakes.
+
+### 8.2 Configuration
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `OPENAI_API_KEY` | yes | | |
+| `TWIN_MODEL` | no | `gpt-5.4-mini` | |
+| `PUSHOVER_USER`, `PUSHOVER_TOKEN` | no | | If either is absent, tools log to stderr instead of pushing, and startup logs a warning. |
+| `KNOWLEDGE_DIR` | no | `<repo>/knowledge` | |
+
+Missing required variables produce one `ConfigError` naming all of them, not
+a `KeyError` on the first.
+
+### 8.3 System prompt
+
+Built from three parts in order: the role instructions (who the twin is,
+that it is an AI, that it represents Adam), the knowledge files each under a
+heading of its title and kind, and the rules (stay on professional topics,
+never invent, use the unknown-question tool, ask for email when a visitor
+wants to get in touch, markdown without code blocks). The rules text moves
+from the course prompt largely unchanged. No file body is altered on the way
+in.
+
+### 8.4 Tool handling and errors
+
+- A tool that raises returns a tool message containing a short error string
+  to the model, and the error is logged with the tool name and arguments. The
+  chat continues.
+- An unknown tool name returns "unknown tool" to the model, as today.
+- Pushover HTTP failures are caught in `PushoverTools`, logged, and reported
+  to the model as "notification failed"; the conversation is not affected.
+- The completion loop stops after 5 consecutive tool rounds and returns the
+  last assistant text, to bound runaway tool use.
+
+### 8.5 Gradio dev harness
+
+`app_gradio.py` keeps the current `ChatInterface`, examples, CSS and JS. It
+is a development tool only and is not part of the deployment story.
+
+## 9. Tests and evals
+
+### 9.1 Unit tests
+
+Written before the implementation, run with `uv run pytest`, no network, no
+API key. Target 80 percent line coverage of the `twin` package, measured with
+`pytest-cov`.
+
+- `config.py`: all required present; one missing; several missing lists all;
+  defaults applied.
+- `knowledge.py`: valid tree loads in the documented order; missing `public`
+  fails naming the file; bad `kind`; missing `period` on a role; empty body;
+  `raw/` and `README.md` are skipped; token warning fires above threshold.
+- `prompt.py`: contains every file title; order preserved; rules present;
+  bodies unmodified.
+- `tools.py`: dispatch routes to the right handler; handler exception becomes
+  an error tool message; unknown tool; Pushover HTTP failure handled;
+  logging fallback when Pushover is unconfigured.
+- `agent.py`: with a fake client, a plain reply returns text; a tool-call
+  reply dispatches then returns the follow-up text; the 5-round cap.
+
+### 9.2 Eval set
+
+`evals/twin_qa.yaml` is a list of cases:
+
+```yaml
+- id: rf-tenure
+  category: fact          # fact | boundary | unknown | voice
+  question: How long were you at Recorded Future?
+  must_include: ["2018", "2022"]     # case-insensitive substrings, all required
+  must_not_include: []
+  expect_tool: null                  # or a tool name that must be called
+  max_words: null
+```
+
+Categories and what passes:
+
+- **fact**: `must_include` all present, `must_not_include` all absent.
+- **boundary**: `must_not_include` all absent; the answer redirects rather
+  than complies.
+- **unknown**: `expect_tool` is `record_unknown_question` and it was called;
+  nothing in `must_not_include` appears, which is how invention is caught.
+- **voice**: `must_not_include` catches phrases Adam would never use
+  ("As an AI language model", "I'm just an AI"); `max_words` catches
+  rambling.
+
+The first eval set has at least one fact case per role, five boundary cases
+from `boundaries.md`, five unknown cases, and five voice cases. It grows as
+the interviews add facts.
+
+### 9.3 Eval runner
+
+`tests/test_evals.py` is marked `integration` and skipped when
+`OPENAI_API_KEY` is unset. Each case runs as a fresh single-turn
+conversation through `TwinAgent` with a `RecordingTools` registry that
+captures calls and never contacts Pushover, so evals do not page Adam. Each
+case is a separate parametrized test, so a failure names the case id.
+
+## 10. Success criteria
+
+1. `uv run pytest -m "not integration"` passes with at least 80 percent
+   coverage of `twin/`.
+2. `uv run pytest -m integration` passes every case in `evals/twin_qa.yaml`
+   with a real API key.
+3. `uv run python app_gradio.py` starts, and the four example questions are
+   answered from the knowledge files with no reference to LinkedIn text.
+4. Starting with no `.env` prints one message naming `OPENAI_API_KEY` and
+   exits non-zero.
+5. Every committed knowledge file has `public: true` and a `reviewed` date.
+6. Everything is committed locally with `origin` set to
+   `adamlittleusa/DigitalTwin`, so the eventual push is a single command.
+   No push is part of this spec.
+
+## 11. Risks
+
+- **Everything the twin knows is extractable.** Accepted by design. The
+  defence is that sensitive material is never in the knowledge files, not
+  that it is hidden. `boundaries.md` and the review gate are the controls.
+- **Tool abuse.** A visitor can make the twin call the notification tools
+  repeatedly. Acceptable while the app runs only locally; rate limiting is
+  part of the API spec and must land before public deployment.
+- **Invention.** The model may fill gaps in thin role files. The unknown
+  category evals and the "leave sections empty, never invent" drafting rule
+  are the controls.
+- **Stale knowledge.** `reviewed` dates and the coverage table make staleness
+  visible.
+
+## 12. Follow-on specs, in order
+
+1. Twin API: FastAPI, streaming, rate limiting, the portfolio guide tool.
+2. Site and design system: Next.js, custom chat UI, the aesthetic work.
+3. Deployment: Vercel, API host, DNS for adambuilds.ai.
