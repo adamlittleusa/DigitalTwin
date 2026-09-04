@@ -110,8 +110,11 @@ adambuilds/
     superpowers/specs/
 ```
 
-The course folder in OneDrive is copied, not moved. Adam can delete it once
-the new repo runs.
+From the course folder in OneDrive, only the Python sources are carried
+over, and they are copied, not moved. `linkedin.pdf` and `summary.txt` are
+not brought into the repo: the PDF is scraped page text that must not land
+in a public repository, and the summary is superseded by `identity.md`.
+Adam can delete the OneDrive folder once the new repo runs.
 
 ## 6. Knowledge base
 
@@ -136,6 +139,8 @@ Rules enforced by the loader:
 - `public: true` is required. The loader raises `KnowledgeError` naming every
   file that fails, and the app does not start. This is how "public-safe by
   rule" is enforced rather than remembered.
+- `title` is required and non-empty; the prompt builder uses it as the
+  heading for the file.
 - `kind` must be one of the eight values above.
 - `period` is required for `role` and `project`. It has the form
   `<start> to <end>` where each end is `YYYY` or `YYYY-MM`, and the end may
@@ -197,15 +202,20 @@ not a rewrite of the knowledge.
 
 1. **Monologue.** Adam delivers his practiced resume monologue in chat. It is
    saved verbatim to `knowledge/raw/2026-09-04-monologue.md`.
-2. **Seed drafts.** Inputs are the monologue transcript and the 2026 resume.
-   The resume source is
+2. **Seed drafts, in two passes.** The resume source is
    `C:\Users\adaml\OneDrive\Desktop\resumes\workday resume 2026.docx`; its
    text is extracted once and saved to `knowledge/raw/resume-2026.md`.
-   Seeding cannot start until the monologue exists, so the implementation
-   plan gates the seeding task on Adam delivering it. Claude then drafts
-   `identity.md`, `voice.md`, `career-arc.md`, `boundaries.md`, `faq.md`,
-   `projects/digital-twin.md`, and the nine role files. Anything not stated
-   in a source is left as an empty section, never invented.
+   - *Pass one, from the resume and this spec, needs nothing from Adam:*
+     the nine role files, `projects/digital-twin.md`, a first
+     `identity.md`, and default `boundaries.md` and `faq.md`. This pass
+     is enough to make the loader, the prompt, the Gradio harness, and the
+     fact evals runnable.
+   - *Pass two, gated on the monologue:* `voice.md` and `career-arc.md`
+     are written from it, and `identity.md`, `boundaries.md`, `faq.md`, and
+     the role files are revised with what it adds.
+
+   Anything not stated in a source is left as an empty section, never
+   invented.
 3. **Coverage table.** `knowledge/README.md` gets a table with one row per
    file and columns Seeded, Interviewed, Reviewed. Claude fills Seeded.
 4. **Interview.** Role by role, newest first, in chat. Each role gets the
@@ -222,6 +232,8 @@ not a rewrite of the knowledge.
 **Done state for this spec.** The monologue is captured in `raw/`, the resume
 text is in `raw/`, all seed drafts exist and load, the coverage table is
 filled in, and this workflow is written into `knowledge/README.md`. The
+`topics/` directory is empty at the done state apart from a `.gitkeep`,
+because topic files come from the interviews; the README says so. The
 role-by-role interviews are a rolling activity that continues after this
 spec is complete; they are not tasks in its implementation plan.
 
@@ -302,6 +314,10 @@ API key. Target 80 percent line coverage of the `twin` package, measured with
   logging fallback when Pushover is unconfigured.
 - `agent.py`: with a fake client, a plain reply returns text; a tool-call
   reply dispatches then returns the follow-up text; the 5-round cap.
+- The real `knowledge/` tree: one test calls `load_knowledge` on the
+  repository's actual knowledge directory and asserts it loads. This makes
+  "all seed drafts exist and load" checkable by `uv run pytest` and catches
+  a bad frontmatter edit before it reaches the app.
 
 ### 9.2 Eval set
 
@@ -343,7 +359,9 @@ the interviews add facts.
 `OPENAI_API_KEY` is unset. Each case runs as a fresh single-turn
 conversation through `TwinAgent` with a `RecordingTools` registry that
 captures calls and never contacts Pushover, so evals do not page Adam. Each
-case is a separate parametrized test, so a failure names the case id.
+case is a separate parametrized test, so a failure names the case id. Model
+output is not deterministic, so the runner retries a failing case once
+before reporting it; two failures in a row is a real failure.
 
 ## 10. Success criteria
 
@@ -356,8 +374,8 @@ case is a separate parametrized test, so a failure names the case id.
 4. Starting with no `.env` prints one message naming `OPENAI_API_KEY` and
    exits non-zero.
 5. Every committed knowledge file has `public: true`. Every knowledge file
-   that is ever pushed also has a `reviewed` date; the push step in a later
-   spec checks this.
+   that is ever pushed also has a `reviewed` date; the Deployment spec owns
+   the check that enforces this before the first push.
 6. Everything is committed locally with `origin` set to
    `adamlittleusa/DigitalTwin`, so the eventual push is a single command.
    No push is part of this spec.
@@ -380,6 +398,17 @@ case is a separate parametrized test, so a failure names the case id.
   Mitigation: after each narration or interview session, Adam copies
   `knowledge/raw/` to a OneDrive folder; `knowledge/README.md` says so in
   its workflow section.
+- **Removed content survives in git history.** A draft may contain something
+  Adam strikes on review, such as a client name from the monologue, and the
+  first push sends the whole history. Mitigation, owned by the Deployment
+  spec: scan history for removed knowledge content before the first push
+  and squash the knowledge commits if anything is found. Adam may instead
+  choose to commit knowledge files only after review; either is fine, and
+  the plan assumes the scan-and-squash route.
+- **Eval flakiness.** A live model can fail a case on phrasing rather than
+  knowledge. The single retry in 9.3 is the control; if a case flakes
+  repeatedly, its assertions are too tight and get loosened, not the
+  knowledge.
 
 ## 12. Follow-on specs, in order
 
