@@ -102,7 +102,7 @@ adambuilds/
       .gitkeep               Next.js arrives in a later spec
   knowledge/                 the twin's memory of Adam (see section 6)
     README.md                conventions and the coverage table
-    raw/                     gitignored: monologue transcript, interview notes
+    raw/                     gitignored: monologue transcript, resume text, interview notes
   evals/
     twin_qa.yaml
   private/                   gitignored: notes for Claude that never reach the twin
@@ -137,9 +137,14 @@ Rules enforced by the loader:
   file that fails, and the app does not start. This is how "public-safe by
   rule" is enforced rather than remembered.
 - `kind` must be one of the eight values above.
-- `period` is required for `role` and `project` and must parse as
-  `YYYY-MM to YYYY-MM` or `YYYY-MM to present`.
+- `period` is required for `role` and `project`. It has the form
+  `<start> to <end>` where each end is `YYYY` or `YYYY-MM`, and the end may
+  be `present`. Sorting uses the start; a bare year sorts as its January.
+- `reviewed`, when present, may arrive from the YAML parser as a date object
+  or a string; the loader normalises it to an ISO date string.
 - Body must be non-empty.
+- The loader recurses into subdirectories under `knowledge/`, skipping
+  `raw/` and `README.md`.
 
 ### 6.2 File inventory
 
@@ -149,10 +154,25 @@ Rules enforced by the loader:
 | `voice.md` | voice | How Adam talks: tone, phrases he uses, things he would never say, three sample answers in his voice. Drafted from the monologue. |
 | `boundaries.md` | boundaries | What the twin declines to discuss and the deflection it uses. Draft defaults for Adam to edit: compensation, negative comments on employers or colleagues, operational military detail beyond the resume, client names not already public, personal contact details, politics and religion. |
 | `career-arc.md` | arc | The through-line of the career as the monologue tells it. |
-| `roles/YYYY-slug.md` | role | One per role, nine files from Army intel ops (2001) through Corelight (2026). Sections: Context, What I did, Outcomes, Stories, Skills used, Why I moved on. |
+| `roles/YYYY-slug.md` | role | One per role, the nine files listed below. Sections: Context, What I did, Outcomes, Stories, Skills used, Why I moved on. |
 | `topics/slug.md` | topic | Adam's positions on AI security, CTI, product management, and whatever the interviews surface. |
 | `projects/slug.md` | project | One per portfolio project, starting with `digital-twin.md`: what, why, stack, status, link. The future guide tool reads these. |
 | `faq.md` | faq | Common visitor questions with approved answers. |
+
+The nine role files, with the `period` each carries, taken from the 2026
+resume:
+
+| File | Title | Period |
+|---|---|---|
+| `roles/2026-corelight.md` | Principal Product Manager, AI-Driven Security Response, Corelight | `2026-03 to present` |
+| `roles/2023-accenture.md` | Deputy Director of Strategy and Services, Accenture Cyber Intelligence | `2023-07 to 2026-03` |
+| `roles/2023-revelstoke.md` | Solutions Architect and CTI, Revelstoke SOAR | `2023-02 to 2023-07` |
+| `roles/2022-pondurance.md` | Cyber Threat Intelligence Program Manager, Pondurance | `2022-08 to 2023-02` |
+| `roles/2018-recorded-future.md` | Intelligence Services Consultant to Product Architect, Recorded Future | `2018-07 to 2022-08` |
+| `roles/2017-mit-lincoln-lab.md` | Information System Security Officer, MIT Lincoln Laboratory | `2017-10 to 2018-07` |
+| `roles/2017-mission-essential.md` | Counterintelligence Analyst, Insider Threat Team, Mission Essential Personnel | `2017-03 to 2017-09` |
+| `roles/2013-mang-training-manager.md` | Training Manager (AGR), Massachusetts Army National Guard | `2013-07 to 2017-03` |
+| `roles/2001-army-intel-ops.md` | Intelligence operations roles, U.S. Army, Massachusetts Army National Guard, and contractors | `2001 to 2013` |
 
 Sections inside a role file are headings, not frontmatter, so Adam can write
 freely. A role file may leave a section empty while it is still being
@@ -177,10 +197,15 @@ not a rewrite of the knowledge.
 
 1. **Monologue.** Adam delivers his practiced resume monologue in chat. It is
    saved verbatim to `knowledge/raw/2026-09-04-monologue.md`.
-2. **Seed drafts.** Claude drafts `identity.md`, `voice.md`, `career-arc.md`,
-   `boundaries.md`, `faq.md`, `projects/digital-twin.md`, and all nine role
-   files from the monologue plus the 2026 resume. Anything not stated in a
-   source is left as an empty section, never invented.
+2. **Seed drafts.** Inputs are the monologue transcript and the 2026 resume.
+   The resume source is
+   `C:\Users\adaml\OneDrive\Desktop\resumes\workday resume 2026.docx`; its
+   text is extracted once and saved to `knowledge/raw/resume-2026.md`.
+   Seeding cannot start until the monologue exists, so the implementation
+   plan gates the seeding task on Adam delivering it. Claude then drafts
+   `identity.md`, `voice.md`, `career-arc.md`, `boundaries.md`, `faq.md`,
+   `projects/digital-twin.md`, and the nine role files. Anything not stated
+   in a source is left as an empty section, never invented.
 3. **Coverage table.** `knowledge/README.md` gets a table with one row per
    file and columns Seeded, Interviewed, Reviewed. Claude fills Seeded.
 4. **Interview.** Role by role, newest first, in chat. Each role gets the
@@ -189,9 +214,16 @@ not a rewrite of the knowledge.
    moved on. Answers are appended verbatim to
    `knowledge/raw/interviews/<role-slug>.md` and folded into the role file.
    Topic and FAQ material that surfaces goes to its own file.
-5. **Review gate.** Adam reads every file before it is committed and sets
-   the `reviewed` date. Files without a `reviewed` date are not pushed to
-   GitHub.
+5. **Review gate.** Drafts and partially interviewed files may be committed
+   locally so nothing is lost. Adam reads each file when he is satisfied
+   with it and sets the `reviewed` date. The gate is on pushing: no knowledge
+   file leaves this machine without a `reviewed` date.
+
+**Done state for this spec.** The monologue is captured in `raw/`, the resume
+text is in `raw/`, all seed drafts exist and load, the coverage table is
+filled in, and this workflow is written into `knowledge/README.md`. The
+role-by-role interviews are a rolling activity that continues after this
+spec is complete; they are not tasks in its implementation plan.
 
 ## 8. Twin application changes
 
@@ -203,7 +235,7 @@ not a rewrite of the knowledge.
 | `knowledge.py` | Find, parse, validate, order knowledge files. | `load_knowledge(root: Path) -> Knowledge`; `Knowledge` is a frozen dataclass holding a tuple of `KnowledgeFile` (path, meta, body). |
 | `prompt.py` | Build the system prompt from `Knowledge`. | `build_system_prompt(knowledge: Knowledge) -> str`. Pure function. |
 | `tools.py` | Tool schemas, handlers, dispatch. | `ToolRegistry` protocol with `schemas` and `call(name, args) -> str`; `PushoverTools` implementation; `dispatch(registry, tool_calls) -> list[dict]`. |
-| `agent.py` | The chat-completions loop. | `TwinAgent(client, settings, system_prompt, tools)`; `reply(history, message) -> str`. |
+| `agent.py` | The chat-completions loop. | `TwinAgent(client, settings, system_prompt, tools)`; `reply(history, message) -> str`. `history` is the Gradio messages-format list of `{role, content}` dicts and is passed to the model unchanged. |
 | `app_gradio.py` | Wire the above, launch the dev UI. | `main()`. |
 
 Every dependency that touches the network (OpenAI client, Pushover) is passed
@@ -240,8 +272,10 @@ in.
 - An unknown tool name returns "unknown tool" to the model, as today.
 - Pushover HTTP failures are caught in `PushoverTools`, logged, and reported
   to the model as "notification failed"; the conversation is not affected.
-- The completion loop stops after 5 consecutive tool rounds and returns the
-  last assistant text, to bound runaway tool use.
+- The completion loop allows at most 5 consecutive tool rounds. If the cap
+  is hit, the agent makes one final completion with `tool_choice="none"`
+  and returns its text, so the visitor always gets a reply rather than an
+  empty tool-call message.
 
 ### 8.5 Gradio dev harness
 
@@ -283,13 +317,18 @@ API key. Target 80 percent line coverage of the `twin` package, measured with
   max_words: null
 ```
 
-Categories and what passes:
+The runner applies every non-null field the same way for every case:
+`must_include` substrings must all appear, `must_not_include` substrings must
+all be absent, `expect_tool` must have been called, and the reply must not
+exceed `max_words`. `category` is a label for reporting and signals which
+fields a case typically uses:
 
-- **fact**: `must_include` all present, `must_not_include` all absent.
-- **boundary**: `must_not_include` all absent; the answer redirects rather
-  than complies.
-- **unknown**: `expect_tool` is `record_unknown_question` and it was called;
-  nothing in `must_not_include` appears, which is how invention is caught.
+- **fact**: `must_include` carries the facts, `must_not_include` catches
+  known confusions.
+- **boundary**: `must_not_include` catches the leak. Whether the deflection
+  reads well is judged by Adam reading the transcript, not by the runner.
+- **unknown**: `expect_tool` is `record_unknown_question`; `must_not_include`
+  carries the plausible inventions.
 - **voice**: `must_not_include` catches phrases Adam would never use
   ("As an AI language model", "I'm just an AI"); `max_words` catches
   rambling.
@@ -316,7 +355,9 @@ case is a separate parametrized test, so a failure names the case id.
    answered from the knowledge files with no reference to LinkedIn text.
 4. Starting with no `.env` prints one message naming `OPENAI_API_KEY` and
    exits non-zero.
-5. Every committed knowledge file has `public: true` and a `reviewed` date.
+5. Every committed knowledge file has `public: true`. Every knowledge file
+   that is ever pushed also has a `reviewed` date; the push step in a later
+   spec checks this.
 6. Everything is committed locally with `origin` set to
    `adamlittleusa/DigitalTwin`, so the eventual push is a single command.
    No push is part of this spec.
@@ -334,6 +375,11 @@ case is a separate parametrized test, so a failure names the case id.
   are the controls.
 - **Stale knowledge.** `reviewed` dates and the coverage table make staleness
   visible.
+- **Raw transcripts have no backup.** `knowledge/raw/` is gitignored and the
+  repo sits outside OneDrive, yet those transcripts are the source of truth.
+  Mitigation: after each narration or interview session, Adam copies
+  `knowledge/raw/` to a OneDrive folder; `knowledge/README.md` says so in
+  its workflow section.
 
 ## 12. Follow-on specs, in order
 
