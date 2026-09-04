@@ -154,6 +154,8 @@ def _validate(relative: Path, meta: dict[str, Any], body: str) -> KnowledgeFile:
     title = meta.get("title")
     if not isinstance(title, str) or not title.strip():
         errors.append("title must be a non-empty string")
+    if isinstance(title, str) and any(ch in title for ch in '<>"'):
+        errors.append("title must not contain <, >, or double quotes")
 
     kind = meta.get("kind")
     kind_ok = isinstance(kind, str) and kind in KIND_ORDER
@@ -163,11 +165,13 @@ def _validate(relative: Path, meta: dict[str, Any], body: str) -> KnowledgeFile:
     period = meta.get("period")
     if kind_ok and kind in PERIOD_KINDS:
         errors.extend(_period_problems(period))
-    elif period is not None:
+    elif kind_ok and period is not None:
         errors.append("period is only allowed on roles and projects")
 
     if not body:
         errors.append("body is empty")
+    if "<section" in body or "</section>" in body:
+        errors.append("body must not contain section tags")
 
     tags = meta.get("tags")
     if tags is None:

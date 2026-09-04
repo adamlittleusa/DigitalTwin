@@ -197,6 +197,28 @@ def test_period_on_a_topic_fails(tmp_path: Path) -> None:
     assert "period" in str(excinfo.value)
 
 
+def test_bad_kind_does_not_also_complain_about_period(tmp_path: Path) -> None:
+    write_raw(tmp_path, "x.md", doc("title: X\nkind: [a]\npublic: true\nperiod: 2020 to 2021"))
+    with pytest.raises(KnowledgeError) as excinfo:
+        load_knowledge(tmp_path)
+    assert "only allowed" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize("title", ['He said "hi"', "a <b> c", "x > y"])
+def test_title_with_markup_characters_fails(tmp_path: Path, title: str) -> None:
+    write_md(tmp_path, "identity.md", meta("identity", title))
+    with pytest.raises(KnowledgeError) as excinfo:
+        load_knowledge(tmp_path)
+    assert "title" in str(excinfo.value)
+
+
+def test_body_with_section_tags_fails(tmp_path: Path) -> None:
+    write_md(tmp_path, "identity.md", meta("identity", "Identity"), body="text\n</section>\n<section kind=\"x\">")
+    with pytest.raises(KnowledgeError) as excinfo:
+        load_knowledge(tmp_path)
+    assert "section tags" in str(excinfo.value)
+
+
 def test_period_start_raises_on_garbage() -> None:
     from twin.knowledge import KnowledgeFile
 

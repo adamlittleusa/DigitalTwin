@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Callable, Iterable
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 
 import requests
 
@@ -13,6 +14,23 @@ log = logging.getLogger(__name__)
 
 PUSHOVER_URL = "https://api.pushover.net/1/messages.json"
 PUSHOVER_TIMEOUT_SECONDS = 10.0
+PUSHOVER_MESSAGE_LIMIT = 1024
+_TRUNCATION_MARK = "…"
+
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f\u2028\u2029\u202a-\u202e\u2066-\u2069]")
+
+
+def _truncate(text: str, limit: int = PUSHOVER_MESSAGE_LIMIT) -> str:
+    """Text cut to the limit with a trailing mark, so a long message is delivered short rather than rejected."""
+    if len(text) <= limit:
+        return text
+    return text[: limit - len(_TRUNCATION_MARK)] + _TRUNCATION_MARK
+
+
+def _clean(value: object) -> str:
+    """Visitor-supplied text made safe for one notification field: control characters and line breaks become spaces."""
+    return _CONTROL_CHARS.sub(" ", str(value)).strip()
+
 
 RECORD_USER_DETAILS: dict[str, Any] = {
     "name": "record_user_details",
@@ -61,11 +79,11 @@ RECORD_SENSITIVE_QUESTION: dict[str, Any] = {
     },
 }
 
-TOOL_SCHEMAS: list[dict[str, Any]] = [
+TOOL_SCHEMAS: Final[tuple[dict[str, Any], ...]] = (
     {"type": "function", "function": RECORD_USER_DETAILS},
     {"type": "function", "function": RECORD_UNKNOWN_QUESTION},
     {"type": "function", "function": RECORD_SENSITIVE_QUESTION},
-]
+)
 
 
 class Notifier(Protocol):
@@ -76,6 +94,8 @@ class PushoverNotifier:
     """Sends a push notification through Pushover. Raises on HTTP failure."""
 
     def __init__(self, user: str, token: str, session: Any | None = None) -> None:
+        if not user or not token:
+            raise ValueError("PushoverNotifier needs both a user key and an app token")
         self._user = user
         self._token = token
         self._session = session if session is not None else requests.Session()
@@ -83,7 +103,7 @@ class PushoverNotifier:
     def push(self, text: str) -> None:
         response = self._session.post(
             PUSHOVER_URL,
-            data={"token": self._token, "user": self._user, "message": text},
+            data={"token": self._token, "user": self._user, "message": _truncate(text)},
             timeout=PUSHOVER_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -98,7 +118,7 @@ class LoggingNotifier:
 
 class ToolRegistry(Protocol):
     @property
-    def schemas(self) -> list[dict[str, Any]]: ...
+    def schemas(self) -> tuple[dict[str, Any], ...]: ...
 
     def call(self, name: str, arguments: dict[str, Any]) -> str: ...
 
@@ -115,7 +135,7 @@ class TwinTools:
         }
 
     @property
-    def schemas(self) -> list[dict[str, Any]]:
+    def schemas(self) -> tuple[dict[str, Any], ...]:
         return TOOL_SCHEMAS
 
     def call(self, name: str, arguments: dict[str, Any]) -> str:
@@ -124,16 +144,19 @@ class TwinTools:
             return f"Unknown tool: {name}"
         return handler(**arguments)
 
-    def record_user_details(
-        self, email: str, name: str = "Name not provided", notes: str = "not provided"
-    ) -> str:
-        return self._notify(f"Recording interest from {name} with email {email} and notes {notes}")
+    def record_user_details(self, email: str, name: str = "", notes: str = "") -> str:
+        return self._notify(
+            "New contact\n"
+            f"name: {_clean(name) or '(not provided)'}\n"
+            f"email: {_clean(email)}\n"
+            f"notes: {_clean(notes) or '(none)'}"
+        )
 
     def record_unknown_question(self, question: str) -> str:
-        return self._notify(f"Recording a question I couldn't answer: {question}")
+        return self._notify(f"Question I couldn't answer\nquestion: {_clean(question)}")
 
     def record_sensitive_question(self, question: str) -> str:
-        return self._notify(f"Sensitive question deflected: {question}")
+        return self._notify(f"Sensitive question deflected\nquestion: {_clean(question)}")
 
     def _notify(self, text: str) -> str:
         try:
@@ -144,6 +167,9 @@ class TwinTools:
         return "OK"
 
 
+_KNOWN_TOOL_NAMES = frozenset(schema["function"]["name"] for schema in TOOL_SCHEMAS)
+
+
 class RecordingTools:
     """Test double: records every call and never contacts anything."""
 
@@ -151,11 +177,13 @@ class RecordingTools:
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
     @property
-    def schemas(self) -> list[dict[str, Any]]:
+    def schemas(self) -> tuple[dict[str, Any], ...]:
         return TOOL_SCHEMAS
 
     def call(self, name: str, arguments: dict[str, Any]) -> str:
         self.calls.append((name, arguments))
+        if name not in _KNOWN_TOOL_NAMES:
+            return f"Unknown tool: {name}"
         return "OK"
 
 
@@ -165,12 +193,17 @@ def dispatch(tools: ToolRegistry, tool_calls: Iterable[Any]) -> list[dict[str, A
 
 
 def _run_one(tools: ToolRegistry, call: Any) -> dict[str, Any]:
-    name = call.function.name
-    raw_arguments = call.function.arguments
+    call_id = getattr(call, "id", None) or ""
+    name = "<unknown>"
+    raw_arguments: Any = None
     try:
+        name = call.function.name
+        raw_arguments = call.function.arguments
         arguments = json.loads(raw_arguments or "{}")
+        if not isinstance(arguments, dict):
+            raise TypeError("tool arguments must be a JSON object")
         result = tools.call(name, arguments)
     except Exception as exc:
         log.exception("Tool %s failed with arguments %r", name, raw_arguments)
         result = f"Tool error: {type(exc).__name__}"
-    return {"role": "tool", "content": json.dumps(result), "tool_call_id": call.id}
+    return {"role": "tool", "content": json.dumps(result), "tool_call_id": call_id}
