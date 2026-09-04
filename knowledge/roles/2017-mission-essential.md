@@ -8,7 +8,7 @@ public: true
 
 ## Context
 
-Mission Essential Personnel, a government contractor, at Fort Devens, Massachusetts. Adam was a Counterintelligence Analyst on an insider threat team supporting operations in Afghanistan.
+Mission Essential Personnel, at Fort Devens, Massachusetts. Adam was a Counterintelligence Analyst on an insider threat team supporting operations in Afghanistan.
 
 ## What I did
 

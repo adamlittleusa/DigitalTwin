@@ -12,7 +12,7 @@ Intelligence operations roles across the U.S. Army, the Massachusetts Army Natio
 
 ## What I did
 
-Served in intelligence operations roles with assignments that included Kosovo, Iraq, Morocco, Gabon, and Southeast Asia. Details beyond the assignment locations stay at the level of the resume.
+Served in intelligence operations roles with assignments that included Kosovo, Iraq, Morocco, Gabon, and Southeast Asia.
 
 ## Outcomes
 
@@ -20,6 +20,6 @@ Served in intelligence operations roles with assignments that included Kosovo, I
 
 ## Skills used
 
-Intelligence collection and operations, working in deployed and multinational environments.
+Intelligence collection and operations.
 
 ## Why I moved on

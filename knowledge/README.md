@@ -28,8 +28,8 @@ Role files use these headings, in this order, and leave a heading empty
 rather than guessing: Context, What I did, Outcomes, Stories, Skills used,
 Why I moved on.
 
-`raw/` is gitignored. It holds the verbatim sources: the resume text, the
-monologue transcript, and interview notes. `topics/` is empty until the
+`raw/` is gitignored. It holds the verbatim sources: today the resume text, the
+LinkedIn profile export, and Adam's short summary; later the monologue transcript and interview notes. `topics/` is empty until the
 interviews produce opinion pieces.
 
 ## Workflow
@@ -50,18 +50,18 @@ interviews produce opinion pieces.
 
 | File | Seeded | Interviewed | Reviewed |
 |---|---|---|---|
-| `identity.md` | resume + LinkedIn headline + summary, pass 1 | | |
+| `identity.md` | resume + LinkedIn (About, headline, location) + summary + spec, pass 1 | | |
 | `voice.md` | waiting on monologue | | |
 | `boundaries.md` | defaults, pass 1 | | |
 | `career-arc.md` | waiting on monologue | | |
 | `roles/2026-corelight.md` | resume + LinkedIn end date, pass 1 | | |
 | `roles/2023-accenture.md` | resume, pass 1 | | |
 | `roles/2023-revelstoke.md` | resume, pass 1 | | |
-| `roles/2022-pondurance.md` | resume, pass 1 | | |
+| `roles/2022-pondurance.md` | resume + LinkedIn, pass 1 | | |
 | `roles/2018-recorded-future.md` | resume + LinkedIn, pass 1 | | |
 | `roles/2017-mit-lincoln-lab.md` | resume, pass 1 | | |
 | `roles/2017-mission-essential.md` | resume, pass 1 | | |
 | `roles/2013-mang-training-manager.md` | resume, pass 1 | | |
 | `roles/2001-army-intel-ops.md` | resume, pass 1 | | |
 | `projects/digital-twin.md` | spec, pass 1 | | |
-| `faq.md` | resume + summary, pass 1 | | |
+| `faq.md` | resume + LinkedIn + summary + spec, pass 1 | | |

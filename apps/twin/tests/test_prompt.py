@@ -111,3 +111,8 @@ def test_empty_knowledge_omits_the_knowledge_heading() -> None:
     assert pm.KNOWLEDGE_HEADING not in text
     assert text.startswith(pm.ROLE_INSTRUCTIONS.strip())
     assert text.rstrip().endswith(pm.RULES.strip())
+
+
+def test_role_instructions_bridge_third_to_first_person() -> None:
+    assert "written about Adam in the third person" in pm.ROLE_INSTRUCTIONS
+    assert "answer as Adam in the first person" in pm.ROLE_INSTRUCTIONS
