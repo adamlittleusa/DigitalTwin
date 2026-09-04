@@ -47,6 +47,7 @@ questions:
 | Knowledge representation | Curated markdown loaded whole into the system prompt. RAG rejected as overkill at this size. |
 | Narration method | Adam's practiced interview monologue first, then a structured role-by-role interview in chat to fill gaps. |
 | Model and provider | Unchanged: OpenAI chat completions, `gpt-5.4-mini`, read from config. |
+| Local dev harness | No Gradio anywhere. A terminal chat REPL and a smoke script until the FastAPI service and the site exist. Decided 2026-09-04. |
 
 ## 4. Scope
 
@@ -57,7 +58,8 @@ questions:
 2. Knowledge base: file conventions, loader, the first set of files drafted
    from the resume and monologue, and the interview workflow.
 3. Refactor of the twin into a small package with injectable dependencies,
-   config validation, and error handling. Gradio kept as the local dev UI.
+   config validation, and error handling. A terminal REPL and a smoke
+   script replace Gradio as the local dev harness.
 4. Unit tests and an eval runner.
 5. Local git history only. `origin` points at Adam's existing
    `adamlittleusa/DigitalTwin` repo, and the first push happens when Adam
@@ -82,8 +84,10 @@ adambuilds/
   apps/
     twin/
       pyproject.toml         uv-managed; Python 3.13 pinned via .python-version
-      app_gradio.py          local dev UI, wires the package and launches Gradio
-      styles.py              Gradio CSS/JS from the course app, dev only
+      scripts/
+        chat.py              terminal chat REPL for local development
+        smoke.py             fixed questions through the agent; prints replies and tool calls
+        extract_docx.py      one-off: resume docx to raw text
       twin/
         __init__.py
         config.py            Settings from environment, validated at startup
@@ -91,6 +95,7 @@ adambuilds/
         prompt.py            assembles the system prompt
         tools.py             tool schemas, handlers, dispatch
         agent.py             the completion loop
+        examples.py          the four example questions
       tests/
         test_config.py
         test_knowledge.py
@@ -110,11 +115,13 @@ adambuilds/
     superpowers/specs/
 ```
 
-From the course folder in OneDrive, only the Python sources are carried
-over, and they are copied, not moved. `linkedin.pdf` and `summary.txt` are
-not brought into the repo: the PDF is scraped page text that must not land
-in a public repository, and the summary is superseded by `identity.md`.
-Adam can delete the OneDrive folder once the new repo runs.
+Nothing from the course folder in OneDrive is copied into the repo. The
+agent loop and tool schemas are rewritten inside the package, and the
+Gradio UI and its CSS are left behind. The text of `linkedin.pdf` and
+`summary.txt` is saved under gitignored `knowledge/raw/` as sources only:
+the PDF is scraped page text that must not land in a public repository, and
+the summary is superseded by `identity.md`. Adam can delete the OneDrive
+folder once the new repo runs.
 
 ## 6. Knowledge base
 
@@ -157,7 +164,7 @@ Rules enforced by the loader:
 |---|---|---|
 | `identity.md` | identity | One paragraph on who Adam is today, where he lives, what he is building, how to get in touch (the contact flow, not raw details). |
 | `voice.md` | voice | How Adam talks: tone, phrases he uses, things he would never say, three sample answers in his voice. Drafted from the monologue. |
-| `boundaries.md` | boundaries | What the twin declines to discuss and the deflection it uses. Draft defaults for Adam to edit: compensation, negative comments on employers or colleagues, operational military detail beyond the resume, client names not already public, personal contact details, politics and religion. |
+| `boundaries.md` | boundaries | What the twin declines to discuss and the deflection it uses. Draft defaults for Adam to edit: compensation, negative comments on employers or colleagues, operational military detail beyond the resume, client names not already public, personal contact details, politics and religion, and why the Corelight role ended (deflect neutrally and notify Adam through the `record_sensitive_question` tool). |
 | `career-arc.md` | arc | The through-line of the career as the monologue tells it. |
 | `roles/YYYY-slug.md` | role | One per role, the nine files listed below. Sections: Context, What I did, Outcomes, Stories, Skills used, Why I moved on. |
 | `topics/slug.md` | topic | Adam's positions on AI security, CTI, product management, and whatever the interviews surface. |
@@ -208,7 +215,7 @@ not a rewrite of the knowledge.
    - *Pass one, from the resume and this spec, needs nothing from Adam:*
      the nine role files, `projects/digital-twin.md`, a first
      `identity.md`, and default `boundaries.md` and `faq.md`. This pass
-     is enough to make the loader, the prompt, the Gradio harness, and the
+     is enough to make the loader, the prompt, the dev scripts, and the
      fact evals runnable.
    - *Pass two, gated on the monologue:* `voice.md` and `career-arc.md`
      are written from it, and `identity.md`, `boundaries.md`, `faq.md`, and
@@ -246,9 +253,11 @@ spec is complete; they are not tasks in its implementation plan.
 | `config.py` | Read environment, validate, expose an immutable `Settings`. | `Settings.from_env() -> Settings`; raises `ConfigError` listing every missing required variable. |
 | `knowledge.py` | Find, parse, validate, order knowledge files. | `load_knowledge(root: Path) -> Knowledge`; `Knowledge` is a frozen dataclass holding a tuple of `KnowledgeFile` (path, meta, body). |
 | `prompt.py` | Build the system prompt from `Knowledge`. | `build_system_prompt(knowledge: Knowledge) -> str`. Pure function. |
-| `tools.py` | Tool schemas, handlers, dispatch. | `ToolRegistry` protocol with `schemas` and `call(name, args) -> str`; `PushoverTools` implementation; `dispatch(registry, tool_calls) -> list[dict]`. |
-| `agent.py` | The chat-completions loop. | `TwinAgent(client, settings, system_prompt, tools)`; `reply(history, message) -> str`. `history` is the Gradio messages-format list of `{role, content}` dicts and is passed to the model unchanged. |
-| `app_gradio.py` | Wire the above, launch the dev UI. | `main()`. |
+| `tools.py` | Tool schemas, handlers, dispatch. | `ToolRegistry` protocol with `schemas` and `call(name, args) -> str`; `PushoverTools` implementation; `dispatch(registry, tool_calls) -> list[dict]`. Three tools: the course's `record_user_details` and `record_unknown_question`, plus `record_sensitive_question`, which pushes a notification when the twin deflects a question on a topic a boundary says Adam handles himself. |
+| `agent.py` | The chat-completions loop. | `TwinAgent(client, settings, system_prompt, tools)`; `reply(history, message) -> str`. `history` is a list of `{role, content}` dicts in the OpenAI messages format and is passed to the model unchanged. |
+| `examples.py` | The example questions. | `EXAMPLE_QUESTIONS: tuple[str, ...]`. |
+| `scripts/chat.py` | Wire the above into a terminal REPL. | `main() -> int`; exits 1 with one message when config or knowledge is invalid. |
+| `scripts/smoke.py` | Run fixed questions through the agent with a recording tool registry. | `main() -> int`. |
 
 Every dependency that touches the network (OpenAI client, Pushover) is passed
 in, never constructed inside the module that uses it, so tests and evals can
@@ -271,8 +280,10 @@ a `KeyError` on the first.
 Built from three parts in order: the role instructions (who the twin is,
 that it is an AI, that it represents Adam), the knowledge files each under a
 heading of its title and kind, and the rules (stay on professional topics,
-never invent, use the unknown-question tool, ask for email when a visitor
-wants to get in touch, markdown without code blocks). The rules text moves
+never invent, use the unknown-question tool, deflect the topics in
+boundaries and call the sensitive-question tool where a boundary says so,
+ask for email when a visitor wants to get in touch, markdown without code
+blocks). The rules text moves
 from the course prompt largely unchanged. No file body is altered on the way
 in.
 
@@ -289,10 +300,13 @@ in.
   and returns its text, so the visitor always gets a reply rather than an
   empty tool-call message.
 
-### 8.5 Gradio dev harness
+### 8.5 Local dev harness
 
-`app_gradio.py` keeps the current `ChatInterface`, examples, CSS and JS. It
-is a development tool only and is not part of the deployment story.
+There is no Gradio. `scripts/chat.py` is a terminal REPL that holds a
+multi-turn conversation, and `scripts/smoke.py` runs a fixed question set
+and prints replies and tool calls. Both are development tools only. The
+browser chat arrives with the site spec, and none of the course app's UI or
+CSS is carried into this repo.
 
 ## 9. Tests and evals
 
@@ -341,8 +355,10 @@ fields a case typically uses:
 
 - **fact**: `must_include` carries the facts, `must_not_include` catches
   known confusions.
-- **boundary**: `must_not_include` catches the leak. Whether the deflection
-  reads well is judged by Adam reading the transcript, not by the runner.
+- **boundary**: `must_not_include` catches the leak, and `expect_tool` is
+  `record_sensitive_question` for topics that must notify Adam. Whether the
+  deflection reads well is judged by Adam reading the transcript, not by the
+  runner.
 - **unknown**: `expect_tool` is `record_unknown_question`; `must_not_include`
   carries the plausible inventions.
 - **voice**: `must_not_include` catches phrases Adam would never use
@@ -369,8 +385,9 @@ before reporting it; two failures in a row is a real failure.
    coverage of `twin/`.
 2. `uv run pytest -m integration` passes every case in `evals/twin_qa.yaml`
    with a real API key.
-3. `uv run python app_gradio.py` starts, and the four example questions are
-   answered from the knowledge files with no reference to LinkedIn text.
+3. `uv run python scripts/smoke.py` answers the four example questions from
+   the knowledge files with no reference to LinkedIn text, and
+   `uv run python scripts/chat.py` holds a multi-turn conversation.
 4. Starting with no `.env` prints one message naming `OPENAI_API_KEY` and
    exits non-zero.
 5. Every committed knowledge file has `public: true`. Every knowledge file

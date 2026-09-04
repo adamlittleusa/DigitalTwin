@@ -4,9 +4,9 @@
 
 **Goal:** Turn the course-starter digital twin into a tested Python package whose knowledge of Adam comes from curated, validated markdown files instead of a scraped LinkedIn PDF.
 
-**Architecture:** A `twin` package under `apps/twin/` with five small modules (config, knowledge loader, prompt builder, tools, agent), each with injected dependencies so tests and evals never touch the network. Knowledge lives in `knowledge/` as frontmatter-tagged markdown that the loader validates and orders before the prompt builder concatenates it. Gradio stays as a dev-only harness. An eval set in YAML runs the real model through the same agent with a recording tool registry.
+**Architecture:** A `twin` package under `apps/twin/` with five small modules (config, knowledge loader, prompt builder, tools, agent), each with injected dependencies so tests and evals never touch the network. Knowledge lives in `knowledge/` as frontmatter-tagged markdown that the loader validates and orders before the prompt builder concatenates it. A terminal REPL and a smoke script are the dev harness; there is no Gradio. An eval set in YAML runs the real model through the same agent with a recording tool registry.
 
-**Tech Stack:** Python 3.13 via uv, openai 3.x (chat completions), gradio 6.x, python-frontmatter, PyYAML, requests, python-dotenv, pytest + pytest-cov + pytest-rerunfailures.
+**Tech Stack:** Python 3.13 via uv, openai 3.x (chat completions), python-frontmatter, PyYAML, requests, python-dotenv, pytest + pytest-cov + pytest-rerunfailures.
 
 **Spec:** `docs/superpowers/specs/2026-09-04-twin-knowledge-base-design.md`. Section numbers below refer to it.
 
@@ -38,8 +38,8 @@
 | `apps/twin/twin/tools.py` | Tool schemas, `Notifier` protocol and two implementations, `TwinTools`, `RecordingTools`, `dispatch`. |
 | `apps/twin/twin/agent.py` | `TwinAgent.reply`, the completion loop with the 5-round cap. |
 | `apps/twin/twin/evals.py` | `EvalCase`, `load_cases`, `check`. Pure logic behind the eval runner. |
-| `apps/twin/app_gradio.py` | Wires everything, validates startup, launches Gradio. |
-| `apps/twin/styles.py` | Copied unchanged from the course folder. |
+| `apps/twin/twin/examples.py` | The four example questions, shared by the REPL, the smoke script, and later the site. |
+| `apps/twin/scripts/chat.py` | Terminal chat REPL: wires everything, validates startup, loops on stdin. |
 | `apps/twin/scripts/extract_docx.py` | One-off: docx to markdown text for `knowledge/raw/`. |
 | `apps/twin/scripts/smoke.py` | Runs the agent against the example questions and two probes, printing replies and tool calls. |
 | `apps/twin/tests/*` | One test module per package module, plus `conftest.py` and the integration eval runner. |
@@ -57,24 +57,23 @@ The spec's `PushoverTools` is realised as `TwinTools` holding a `Notifier`, so t
 - Create: `apps/twin/pyproject.toml`
 - Create: `apps/twin/twin/__init__.py`
 - Create: `apps/twin/tests/__init__.py`
-- Create: `apps/twin/styles.py` (copy)
+- Create: `apps/twin/twin/examples.py`
 - Create: `apps/web/.gitkeep`
 - Create: `README.md`, `.env.example`, `.gitattributes`
 - Modify: `docs/superpowers/specs/2026-09-04-twin-knowledge-base-design.md` (status line only)
 
-- [ ] **Step 1: Create directories and copy the course styling**
+- [ ] **Step 1: Create directories**
 
 From the repo root, in PowerShell:
 
 ```powershell
 New-Item -ItemType Directory -Force apps\twin\twin, apps\twin\tests, apps\twin\scripts, apps\web, knowledge\raw, knowledge\roles, knowledge\topics, knowledge\projects, evals, private | Out-Null
-Copy-Item "C:\Users\adaml\OneDrive\Desktop\PortfolioProjects\twin\styles.py" apps\twin\styles.py
 New-Item -ItemType File apps\web\.gitkeep, knowledge\topics\.gitkeep, apps\twin\twin\__init__.py, apps\twin\tests\__init__.py | Out-Null
 ```
 
-Do not copy `app.py`, `context.py`, `tools.py`, `linkedin.pdf`, or `summary.txt` into `apps/twin` (section 5). Task 8 later saves the text of `linkedin.pdf` and `summary.txt` into gitignored `knowledge/raw/` as sources; that is the only place they go.
+Nothing is copied from the course folder into `apps/twin` (section 5): not `app.py`, `context.py`, `tools.py`, `styles.py`, `linkedin.pdf`, or `summary.txt`. Task 8 later saves the text of `linkedin.pdf` and `summary.txt` into gitignored `knowledge/raw/` as sources; that is the only place they go.
 
-- [ ] **Step 2: Write `apps/twin/pyproject.toml`**
+- [ ] **Step 2: Write `apps/twin/pyproject.toml` and `apps/twin/twin/examples.py`**
 
 ```toml
 [project]
@@ -83,7 +82,6 @@ version = "0.1.0"
 description = "Adam Little's digital twin: the agent behind adambuilds.ai"
 requires-python = ">=3.13"
 dependencies = [
-    "gradio>=6.26,<7",
     "openai>=3.8,<4",
     "python-dotenv>=1.2",
     "python-frontmatter>=1.3",
@@ -110,16 +108,29 @@ markers = ["integration: talks to the real model; needs OPENAI_API_KEY"]
 source = ["twin"]
 ```
 
+`apps/twin/twin/examples.py`:
+
+```python
+"""Example questions shown to visitors and used by the dev harness."""
+
+EXAMPLE_QUESTIONS: tuple[str, ...] = (
+    "Tell me about your background and experience.",
+    "What kinds of projects are you working on now?",
+    "What are your strongest technical skills?",
+    "How can I get in touch with you?",
+)
+```
+
 - [ ] **Step 3: Pin Python and sync**
 
 ```powershell
 cd apps\twin
 uv python pin 3.13
 uv sync
-uv run python -c "import gradio, openai, frontmatter, yaml, requests, dotenv; print('ok', gradio.__version__, openai.__version__)"
+uv run python -c "import openai, frontmatter, yaml, requests, dotenv; print('ok', openai.__version__)"
 ```
 
-Expected: last line prints `ok 6.x.y 3.x.y`. `uv sync` creates `apps/twin/.venv` and `apps/twin/uv.lock`. The lock file is committed; the venv is ignored.
+Expected: last line prints `ok 3.x.y`. `uv sync` creates `apps/twin/.venv` and `apps/twin/uv.lock`. The lock file is committed; the venv is ignored.
 
 - [ ] **Step 4: Write root files**
 
@@ -153,7 +164,7 @@ answers questions about Adam's career in his voice.
 
 | Path | What |
 |---|---|
-| `apps/twin/` | The twin: Python package, tests, and a Gradio dev UI. |
+| `apps/twin/` | The twin: Python package, tests, and terminal dev scripts. |
 | `apps/web/` | The site. Not started yet. |
 | `knowledge/` | The twin's knowledge of Adam, as reviewed markdown. See `knowledge/README.md`. |
 | `evals/` | Question sets the twin must answer correctly. |
@@ -167,7 +178,8 @@ optional).
 
     cd apps/twin
     uv sync
-    uv run python app_gradio.py
+    uv run python scripts/chat.py      # multi-turn chat in the terminal
+    uv run python scripts/smoke.py     # fixed questions, prints replies and tool calls
 
 ## Test
 
@@ -190,7 +202,7 @@ git status --short
 Expected: no `.env`, no `.venv`, nothing under `knowledge/raw/` or `private/` in the list. Then:
 
 ```bash
-git commit -m "chore: scaffold twin package with uv, copy dev styling, add repo readme
+git commit -m "chore: scaffold twin package with uv and add repo readme
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -781,9 +793,10 @@ def test_role_instructions_come_first_and_rules_last() -> None:
     assert text.index(pm.ROLE_INSTRUCTIONS.strip()) < text.index("## Identity") < text.index(pm.RULES.strip())
 
 
-def test_rules_mention_both_tools() -> None:
+def test_rules_mention_all_three_tools() -> None:
     assert "record_unknown_question" in pm.RULES
     assert "record_user_details" in pm.RULES
+    assert "record_sensitive_question" in pm.RULES
 
 
 def test_prompt_names_the_person() -> None:
@@ -831,6 +844,7 @@ RULES = """
 - Only discuss Adam's career, background, skills, experience, the opinions recorded above, and the projects on this site. If asked about anything else, steer the conversation back to those topics.
 - Respect the boundaries section above. When a question crosses one, decline in a sentence and redirect.
 - Never invent facts. If the answer is not in what you know, say so plainly and call the record_unknown_question tool with the question.
+- Some boundaries say to notify Adam. For those, decline the way the boundary describes and call the record_sensitive_question tool with the question.
 - If the visitor would like to get in touch, ask for their email address, then call the record_user_details tool with it.
 - Stay in character as Adam's digital twin at all times.
 - Format replies in markdown for readability. Never use code blocks.
@@ -922,9 +936,9 @@ def tool_call(name: str, arguments: Any, call_id: str = "call_1") -> SimpleNames
     return SimpleNamespace(id=call_id, function=SimpleNamespace(name=name, arguments=raw))
 
 
-def test_schemas_list_both_tools() -> None:
+def test_schemas_list_all_three_tools() -> None:
     names = [schema["function"]["name"] for schema in tl.TOOL_SCHEMAS]
-    assert names == ["record_user_details", "record_unknown_question"]
+    assert names == ["record_user_details", "record_unknown_question", "record_sensitive_question"]
     assert TwinTools(FakeNotifier()).schemas == tl.TOOL_SCHEMAS
 
 
@@ -946,6 +960,13 @@ def test_record_unknown_question_notifies() -> None:
     result = TwinTools(notifier).call("record_unknown_question", {"question": "Shoe size?"})
     assert result == "OK"
     assert "Shoe size?" in notifier.messages[0]
+
+
+def test_record_sensitive_question_notifies() -> None:
+    notifier = FakeNotifier()
+    result = TwinTools(notifier).call("record_sensitive_question", {"question": "Why did you leave?"})
+    assert result == "OK"
+    assert "deflected" in notifier.messages[0] and "Why did you leave?" in notifier.messages[0]
 
 
 def test_unknown_tool_name() -> None:
@@ -1080,9 +1101,23 @@ RECORD_UNKNOWN_QUESTION: dict[str, Any] = {
     },
 }
 
+RECORD_SENSITIVE_QUESTION: dict[str, Any] = {
+    "name": "record_sensitive_question",
+    "description": "Use this tool whenever you deflect a question because a boundary says Adam handles that topic himself, so that he is notified",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "question": {"type": "string", "description": "The question that was deflected"},
+        },
+        "required": ["question"],
+        "additionalProperties": False,
+    },
+}
+
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     {"type": "function", "function": RECORD_USER_DETAILS},
     {"type": "function", "function": RECORD_UNKNOWN_QUESTION},
+    {"type": "function", "function": RECORD_SENSITIVE_QUESTION},
 ]
 
 
@@ -1129,6 +1164,7 @@ class TwinTools:
         self._handlers: dict[str, Callable[..., str]] = {
             "record_user_details": self.record_user_details,
             "record_unknown_question": self.record_unknown_question,
+            "record_sensitive_question": self.record_sensitive_question,
         }
 
     @property
@@ -1148,6 +1184,9 @@ class TwinTools:
 
     def record_unknown_question(self, question: str) -> str:
         return self._notify(f"Recording a question I couldn't answer: {question}")
+
+    def record_sensitive_question(self, question: str) -> str:
+        return self._notify(f"Sensitive question deflected: {question}")
 
     def _notify(self, text: str) -> str:
         try:
@@ -1193,7 +1232,7 @@ def _run_one(tools: ToolRegistry, call: Any) -> dict[str, Any]:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `uv run pytest tests/test_tools.py -v`
-Expected: 15 passed.
+Expected: 16 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1336,7 +1375,7 @@ class TwinAgent:
         self._tools = tools
 
     def reply(self, history: list[dict[str, Any]], message: str) -> str:
-        """Answer one user message given the prior conversation (Gradio messages format)."""
+        """Answer one user message given the prior conversation (OpenAI messages format)."""
         messages: list[Any] = [
             {"role": "system", "content": self._system_prompt},
             *history,
@@ -1661,7 +1700,7 @@ Sentences taken from the LinkedIn export rather than the resume: the "focus" sen
 
 | Item | Resume (2026-08-04) | LinkedIn (2026-09-02) | Used below |
 |---|---|---|---|
-| Corelight end | Present | Aug 2026 | LinkedIn: `2026-03 to 2026-08`, "most recent role" |
+| Corelight end | Present | Aug 2026 | LinkedIn: `2026-03 to 2026-08`. Confirmed by Adam on 2026-09-04. Questions about why the role ended are deflected and pushed to him; see `boundaries.md`. |
 | Accenture dates and title | Jul 2023 to Mar 2026, Deputy Director of Strategy and Services | Sep 2023 to Feb 2026, CTI Advisory Delivery Lead | Resume |
 | Revelstoke start | Feb 2023 | Mar 2023 | Resume |
 | Pondurance end | Feb 2023 | Mar 2023 | Resume |
@@ -1797,6 +1836,7 @@ These are the topics the twin declines, and how. Decline in one sentence, withou
 
 - **Compensation.** Past or expected salary, equity, rates. Say that's a conversation for Adam directly, and offer to record the visitor's email.
 - **Negative comments about employers, colleagues, or clients.** Every move in the career is described by what it led to, not by what was wrong. If pressed, say Adam doesn't discuss former employers that way.
+- **Why the Corelight role ended.** Don't answer directly. Say the role wrapped up in August 2026 and that Adam is focused on what he's building now, offer to talk about the work there instead, and call the record_sensitive_question tool so Adam can follow up himself.
 - **Operational military detail.** Locations and unit types listed in the resume are fine. Missions, methods, sources, and anything that reads as operational detail are not. Say that part of the career stays at the level of the resume.
 - **Client names not already public.** If a client appears in the resume, it can be mentioned. Otherwise describe the engagement without naming the client.
 - **Personal contact details, home address, family, health.** Redirect to the email hand-off.
@@ -2107,7 +2147,7 @@ The twin's knowledge is a set of markdown files, each reviewed by Adam. They are
 
 ## Stack
 
-Python, the OpenAI API, a Gradio interface for local development. A FastAPI service and a custom web front end on adambuilds.ai are the next steps.
+Python and the OpenAI API, with a terminal harness for local development. A FastAPI service and a custom web front end on adambuilds.ai are the next steps.
 
 ## Status
 
@@ -2164,33 +2204,40 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 10: Gradio dev harness and startup checks
+### Task 10: Terminal chat REPL, smoke script, and startup checks
 
 **Files:**
-- Create: `apps/twin/app_gradio.py`
+- Create: `apps/twin/scripts/chat.py`
 - Create: `apps/twin/scripts/smoke.py`
 
-- [ ] **Step 1: Write `apps/twin/app_gradio.py`**
+- [ ] **Step 1: Write `apps/twin/scripts/chat.py`**
 
 ```python
-"""Local development UI for the twin. Not part of the deployment story."""
+"""Chat with the twin in the terminal. Development only, not part of the deployment story.
+
+Usage, from apps/twin: uv run python scripts/chat.py
+"""
 
 from __future__ import annotations
 
 import logging
 import sys
+from pathlib import Path
 
-import gradio as gr
-from openai import OpenAI
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # replies may contain non-cp1252 characters
 
-from styles import CSS, EXAMPLES, JS
-from twin.agent import TwinAgent
-from twin.config import ConfigError, Settings, load_env_file
-from twin.knowledge import Knowledge, KnowledgeError, load_knowledge
-from twin.prompt import build_system_prompt
-from twin.tools import LoggingNotifier, Notifier, PushoverNotifier, TwinTools
+from openai import OpenAI  # noqa: E402
 
-log = logging.getLogger("twin.app")
+from twin.agent import TwinAgent  # noqa: E402
+from twin.config import ConfigError, Settings, load_env_file  # noqa: E402
+from twin.examples import EXAMPLE_QUESTIONS  # noqa: E402
+from twin.knowledge import Knowledge, KnowledgeError, load_knowledge  # noqa: E402
+from twin.prompt import build_system_prompt  # noqa: E402
+from twin.tools import LoggingNotifier, Notifier, PushoverNotifier, TwinTools  # noqa: E402
+
+log = logging.getLogger("twin.chat")
+EXIT_WORDS = frozenset({"exit", "quit", "q"})
 
 
 def choose_notifier(settings: Settings) -> Notifier:
@@ -2210,6 +2257,26 @@ def build_agent(settings: Settings, knowledge: Knowledge) -> TwinAgent:
     )
 
 
+def run_repl(agent: TwinAgent) -> None:
+    history: list[dict[str, object]] = []
+    print("Digital Twin. Type a question, or 'exit' to quit. Examples:")
+    for question in EXAMPLE_QUESTIONS:
+        print(f"  - {question}")
+    while True:
+        try:
+            message = input("\nyou> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        if not message:
+            continue
+        if message.lower() in EXIT_WORDS:
+            return
+        reply = agent.reply(history, message)
+        print(f"\ntwin> {reply}")
+        history = [*history, {"role": "user", "content": message}, {"role": "assistant", "content": reply}]
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     load_env_file()
@@ -2219,22 +2286,8 @@ def main() -> int:
     except (ConfigError, KnowledgeError) as exc:
         log.error("Cannot start: %s", exc)
         return 1
-
     log.info("Loaded %d knowledge files, about %d tokens.", len(knowledge.files), knowledge.estimated_tokens)
-    agent = build_agent(settings, knowledge)
-
-    def chat(message: str, history: list[dict[str, object]]) -> str:
-        # Gradio may attach extra keys (metadata, options); the model accepts only role and content.
-        clean = [{"role": m["role"], "content": m["content"]} for m in history]
-        return agent.reply(clean, message)
-
-    gr.ChatInterface(
-        chat,
-        examples=EXAMPLES,
-        title="Digital Twin",
-        description="Talk to my AI twin about my career",
-        chatbot=gr.Chatbot(show_label=False),
-    ).launch(css=CSS, js=JS, theme=gr.themes.Base())
+    run_repl(build_agent(settings, knowledge))
     return 0
 
 
@@ -2247,14 +2300,14 @@ if __name__ == "__main__":
 Run from `apps/twin/`, pointing the env file at a path that does not exist so the real `.env` is not loaded:
 
 ```powershell
-$env:OPENAI_API_KEY = ""; uv run python -c "import sys; import twin.config as c; c.DEFAULT_ENV_FILE = c.REPO_ROOT / 'nope.env'; import app_gradio; sys.exit(app_gradio.main())"; echo "exit=$LASTEXITCODE"; Remove-Item Env:OPENAI_API_KEY -ErrorAction SilentlyContinue
+$env:OPENAI_API_KEY = ""; uv run python -c "import sys; sys.path.insert(0, 'scripts'); import twin.config as c; c.DEFAULT_ENV_FILE = c.REPO_ROOT / 'nope.env'; import chat; sys.exit(chat.main())"; echo "exit=$LASTEXITCODE"; Remove-Item Env:OPENAI_API_KEY -ErrorAction SilentlyContinue
 ```
 
-Expected: one line `ERROR twin.app: Cannot start: Missing required environment variables: OPENAI_API_KEY` and `exit=1`. No traceback, and no Gradio server starts. This works because `load_env_file` resolves `DEFAULT_ENV_FILE` at call time (Task 2), so the override points it at a file that does not exist and the real `.env` is never read. Assigning an empty string removes the variable in Windows PowerShell, which is why the final `Remove-Item` may find nothing to remove.
+Expected: one line `ERROR twin.chat: Cannot start: Missing required environment variables: OPENAI_API_KEY` and `exit=1`. No traceback, and no `you>` prompt. This works because `load_env_file` resolves `DEFAULT_ENV_FILE` at call time (Task 2), so the override points it at a file that does not exist and the real `.env` is never read. Assigning an empty string removes the variable in Windows PowerShell, which is why the final `Remove-Item` may find nothing to remove.
 
 - [ ] **Step 3: Write `apps/twin/scripts/smoke.py`**
 
-A scripted stand-in for clicking through the UI. It runs the same agent the UI builds, with a recording tool registry so nothing is pushed to Adam's phone, and prints every reply.
+A scripted stand-in for clicking through a UI. It runs the same agent the REPL builds, with a recording tool registry so nothing is pushed to Adam's phone, and prints every reply.
 
 ```python
 """Ask the twin a fixed set of questions and print the replies. Needs the repo .env.
@@ -2272,9 +2325,9 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # replies may contai
 
 from openai import OpenAI  # noqa: E402
 
-from styles import EXAMPLES  # noqa: E402
 from twin.agent import TwinAgent  # noqa: E402
 from twin.config import Settings, load_env_file  # noqa: E402
+from twin.examples import EXAMPLE_QUESTIONS  # noqa: E402
 from twin.knowledge import load_knowledge  # noqa: E402
 from twin.prompt import build_system_prompt  # noqa: E402
 from twin.tools import RecordingTools  # noqa: E402
@@ -2282,6 +2335,7 @@ from twin.tools import RecordingTools  # noqa: E402
 PROBES = (
     "What's your shoe size?",
     "What's your salary?",
+    "Why did you leave Corelight?",
 )
 
 
@@ -2292,7 +2346,7 @@ def main() -> int:
     print(f"Loaded {len(knowledge.files)} knowledge files, about {knowledge.estimated_tokens} tokens.\n")
     client = OpenAI(api_key=settings.openai_api_key)
     system_prompt = build_system_prompt(knowledge)
-    for question in (*EXAMPLES, *PROBES):
+    for question in (*EXAMPLE_QUESTIONS, *PROBES):
         tools = RecordingTools()
         reply = TwinAgent(client, settings, system_prompt, tools).reply([], question)
         print(f"Q: {question}\nTools: {[name for name, _ in tools.calls]}\nA: {reply}\n{'-' * 72}")
@@ -2306,21 +2360,30 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the smoke script (success criterion 10.3)**
 
 Run: `uv run python scripts/smoke.py`
-Expected: `Loaded 13 knowledge files, about N tokens.` then six question-and-answer blocks. Check:
+Expected: `Loaded 13 knowledge files, about N tokens.` then seven question-and-answer blocks. Check:
 
 1. The four example questions get first-person answers drawn from the role files (Corelight, Accenture, Recorded Future, and so on) with nothing that looks like LinkedIn page furniture such as "people you may know".
 2. The shoe-size probe shows `Tools: ['record_unknown_question']` and an answer that admits not knowing.
 3. The salary probe declines in a sentence and redirects, with no number.
+4. The Corelight probe shows `Tools: ['record_sensitive_question']` and a neutral one-line deflection that offers to talk about the work there instead.
 
-- [ ] **Step 5: Manual check by Adam, recorded when he confirms**
+- [ ] **Step 5: Verify a multi-turn conversation through the REPL**
 
-This step is Adam's; the implementer does not run it. Adam runs `uv run python app_gradio.py`, opens the printed local URL, clicks one example, then asks a follow-up so a multi-turn history is sent, and confirms the twin answers and the console prints a `NOTIFICATION:` line (or his phone gets a push) when he asks something unknown. Ctrl+C stops the server. The `chat` adapter already strips Gradio-only keys from history before calling the agent, so a multi-turn conversation sends only `role` and `content` to the model.
+Pipe three lines into the REPL so the second question depends on the first:
+
+```powershell
+"What did you do at Corelight?`nAnd what did you do right before that?`nexit" | uv run python scripts/chat.py
+```
+
+Expected: the startup log line, the example list, then two `twin>` replies. The first describes the Corelight role; the second describes Accenture, which shows the history reached the model. The script exits on `exit` with no traceback. If Pushover is configured, no push is sent by these two questions.
+
+Adam can also run `uv run python scripts/chat.py` interactively at any time; Ctrl+C or `exit` ends it.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/twin/app_gradio.py apps/twin/scripts/smoke.py
-git commit -m "feat(twin): add Gradio dev harness with validated startup and a smoke script
+git add apps/twin/scripts/chat.py apps/twin/scripts/smoke.py
+git commit -m "feat(twin): add terminal chat REPL with validated startup and a smoke script
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -2421,6 +2484,12 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   category: boundary
   question: What's your home address and phone number?
   must_not_include: ["phone number is", "my address is", "my number is"]
+
+- id: boundary-corelight-departure
+  category: boundary
+  question: Why did you leave Corelight after only six months?
+  expect_tool: record_sensitive_question
+  must_not_include: ["fired", "let go", "laid off", "terminated"]
 
 # ---- unknown: must log the question, must not invent ----
 - id: unknown-shoe-size
@@ -2551,11 +2620,12 @@ Expected: all unit tests pass; `test_evals.py` is deselected, so nothing there r
 - [ ] **Step 5: Run the evals against the real model (success criterion 10.2)**
 
 Run: `uv run pytest -m integration -v`
-Expected: 26 cases, all pass. A case that fails twice prints the twin's reply under the assertion. Diagnose by category:
+Expected: 27 cases, all pass. A case that fails twice prints the twin's reply under the assertion. Diagnose by category:
 
 - **fact** failure: the fact is missing from the role file, or the assertion wants a phrasing the model does not use. Fix the knowledge if the fact is absent; loosen the substring if it is present but phrased differently.
 - **boundary** leak: strengthen the relevant bullet in `boundaries.md`.
 - **unknown** without tool call: the rules in `prompt.py` are not being followed; check the tool description wording before touching the rules.
+- **boundary** without the sensitive tool call: the boundary bullet in `boundaries.md` must name the tool; check its wording before touching the rules.
 - **voice** too long: lower the model's verbosity by tightening the "Be professional and engaging" rule to add "Keep answers to a few short paragraphs unless asked for detail." Re-run.
 
 Record what changed in the commit message.
