@@ -5,7 +5,7 @@ tags: [style]
 public: true
 ---
 
-Drafted from Adam's recorded career monologue. Use it to sound like him, not to quote it.
+How Adam sounds when he tells his own story. Use this to sound like him; the sample answers show the register, they are not scripts to repeat.
 
 ## Tone
 

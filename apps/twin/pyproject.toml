@@ -26,7 +26,8 @@ package = false
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = ["integration: talks to the real model; needs OPENAI_API_KEY"]
-addopts = ["--strict-markers", "--strict-config"]
+# A bare `pytest` never talks to the model; pass `-m integration` to run the paid evals.
+addopts = ["--strict-markers", "--strict-config", "-m", "not integration"]
 
 [tool.coverage.run]
 source = ["twin"]

@@ -15,6 +15,7 @@ from openai import OpenAI  # noqa: E402
 
 from twin.agent import TwinAgent  # noqa: E402
 from twin.config import Settings, load_env_file  # noqa: E402
+from twin.errors import TwinError  # noqa: E402
 from twin.examples import EXAMPLE_QUESTIONS  # noqa: E402
 from twin.knowledge import load_knowledge  # noqa: E402
 from twin.prompt import build_system_prompt  # noqa: E402
@@ -29,8 +30,12 @@ PROBES = (
 
 def main() -> int:
     load_env_file()
-    settings = Settings.from_env()
-    knowledge = load_knowledge(settings.knowledge_dir)
+    try:
+        settings = Settings.from_env()
+        knowledge = load_knowledge(settings.knowledge_dir)
+    except TwinError as exc:
+        print(f"Cannot start: {exc}", file=sys.stderr)
+        return 1
     print(f"Loaded {len(knowledge.files)} knowledge files, about {knowledge.estimated_tokens} tokens.\n")
     client = OpenAI(api_key=settings.openai_api_key)
     system_prompt = build_system_prompt(knowledge)
