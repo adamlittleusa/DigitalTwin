@@ -213,6 +213,32 @@ def test_recording_tools_reports_unknown_tool() -> None:
     assert RecordingTools().call("nope", {}) == "Unknown tool: nope"
 
 
+def test_long_name_cannot_push_the_email_out_of_the_message() -> None:
+    notifier = FakeNotifier()
+    TwinTools(notifier).call("record_user_details", {"email": "a@b.c", "name": "N" * 5000, "notes": "n" * 5000})
+    message = notifier.messages[0]
+    assert "\nemail: a@b.c\n" in message
+    assert len(message) <= tl.PUSHOVER_MESSAGE_LIMIT
+    lines = message.split("\n")
+    assert lines[1].startswith("name: ") and lines[1].endswith(tl._TRUNCATION_MARK)
+    assert len(lines[1]) == len("name: ") + tl.FIELD_LIMITS["name"]
+    assert lines[3].startswith("notes: ") and lines[3].endswith(tl._TRUNCATION_MARK)
+
+
+def test_long_question_is_cut_to_its_field_limit() -> None:
+    notifier = FakeNotifier()
+    TwinTools(notifier).call("record_sensitive_question", {"question": "q" * 5000})
+    line = notifier.messages[0].split("\n")[1]
+    assert line.startswith("question: ") and line.endswith(tl._TRUNCATION_MARK)
+    assert len(line) == len("question: ") + tl.FIELD_LIMITS["question"]
+
+
+def test_short_fields_are_not_marked() -> None:
+    notifier = FakeNotifier()
+    TwinTools(notifier).call("record_user_details", {"email": "a@b.c", "name": "Ann", "notes": "hi"})
+    assert tl._TRUNCATION_MARK not in notifier.messages[0]
+
+
 @pytest.mark.parametrize("schema", tl.TOOL_SCHEMAS, ids=lambda s: s["function"]["name"])
 def test_schema_matches_handler_signature(schema: dict[str, Any]) -> None:
     function = schema["function"]

@@ -32,6 +32,17 @@ def _clean(value: object) -> str:
     return _CONTROL_CHARS.sub(" ", str(value)).strip()
 
 
+FIELD_LIMITS: Final[dict[str, int]] = {"name": 120, "email": 254, "notes": 500, "question": 600}
+
+
+def _field(value: object, limit: int) -> str:
+    """A visitor-supplied value cleaned and cut to its field limit, so every labelled line fits the message cap."""
+    text = _clean(value)
+    if len(text) <= limit:
+        return text
+    return text[: limit - len(_TRUNCATION_MARK)] + _TRUNCATION_MARK
+
+
 RECORD_USER_DETAILS: dict[str, Any] = {
     "name": "record_user_details",
     "description": "Use this tool to record that a visitor wants to be in touch and provided an email address",
@@ -147,16 +158,16 @@ class TwinTools:
     def record_user_details(self, email: str, name: str = "", notes: str = "") -> str:
         return self._notify(
             "New contact\n"
-            f"name: {_clean(name) or '(not provided)'}\n"
-            f"email: {_clean(email)}\n"
-            f"notes: {_clean(notes) or '(none)'}"
+            f"name: {_field(name, FIELD_LIMITS['name']) or '(not provided)'}\n"
+            f"email: {_field(email, FIELD_LIMITS['email'])}\n"
+            f"notes: {_field(notes, FIELD_LIMITS['notes']) or '(none)'}"
         )
 
     def record_unknown_question(self, question: str) -> str:
-        return self._notify(f"Question I couldn't answer\nquestion: {_clean(question)}")
+        return self._notify(f"Question I couldn't answer\nquestion: {_field(question, FIELD_LIMITS['question'])}")
 
     def record_sensitive_question(self, question: str) -> str:
-        return self._notify(f"Sensitive question deflected\nquestion: {_clean(question)}")
+        return self._notify(f"Sensitive question deflected\nquestion: {_field(question, FIELD_LIMITS['question'])}")
 
     def _notify(self, text: str) -> str:
         try:
