@@ -1,0 +1,26 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Knowledge sources and private notes never leave this machine
+knowledge/raw/
+private/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node (arrives with apps/web)
+node_modules/
+.next/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
