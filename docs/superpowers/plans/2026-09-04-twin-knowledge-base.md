@@ -72,7 +72,7 @@ Copy-Item "C:\Users\adaml\OneDrive\Desktop\PortfolioProjects\twin\styles.py" app
 New-Item -ItemType File apps\web\.gitkeep, knowledge\topics\.gitkeep, apps\twin\twin\__init__.py, apps\twin\tests\__init__.py | Out-Null
 ```
 
-Do not copy `app.py`, `context.py`, `tools.py`, `linkedin.pdf`, or `summary.txt` (section 5).
+Do not copy `app.py`, `context.py`, `tools.py`, `linkedin.pdf`, or `summary.txt` into `apps/twin` (section 5). Task 8 later saves the text of `linkedin.pdf` and `summary.txt` into gitignored `knowledge/raw/` as sources; that is the only place they go.
 
 - [ ] **Step 2: Write `apps/twin/pyproject.toml`**
 
@@ -1568,7 +1568,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `apps/twin/scripts/extract_docx.py`
-- Create: `knowledge/raw/resume-2026.md` (gitignored, local only)
+- Create: `knowledge/raw/resume-2026.md`, `knowledge/raw/linkedin-2026-09-02.md`, `knowledge/raw/summary-2026-09-02.md` (all gitignored, local only)
 
 - [ ] **Step 1: Write the extraction script**
 
@@ -1622,7 +1622,7 @@ Expected: `Wrote ..\..\knowledge\raw\resume-2026.md (about 5300 bytes)`. Open th
 
 - [ ] **Step 3: Save the two secondary sources: the LinkedIn export and Adam's summary**
 
-The LinkedIn export is a secondary source for a few facts the resume lacks: the profile headline, the Corelight end date, and Recorded Future's Boston location and consultant-era duties. Adam's own four-line `summary.txt` from the course folder is the source for where he grew up. Save both next to the resume so every sentence in Task 9 has a source on disk:
+The LinkedIn export is a secondary source for a few facts the resume lacks: the profile headline, the Corelight end date, and Recorded Future's Boston location and consultant-era duties. Adam's own four-sentence `summary.txt` from the course folder is the source for where he grew up. Save both next to the resume so every sentence in Task 9 has a source on disk:
 
 ```powershell
 Copy-Item "C:\Users\adaml\OneDrive\Desktop\PortfolioProjects\twin\summary.txt" "..\..\knowledge\raw\summary-2026-09-02.md"
@@ -2224,7 +2224,9 @@ def main() -> int:
     agent = build_agent(settings, knowledge)
 
     def chat(message: str, history: list[dict[str, object]]) -> str:
-        return agent.reply(history, message)
+        # Gradio may attach extra keys (metadata, options); the model accepts only role and content.
+        clean = [{"role": m["role"], "content": m["content"]} for m in history]
+        return agent.reply(clean, message)
 
     gr.ChatInterface(
         chat,
@@ -2312,14 +2314,7 @@ Expected: `Loaded 13 knowledge files, about N tokens.` then six question-and-ans
 
 - [ ] **Step 5: Manual check by Adam, recorded when he confirms**
 
-This step is Adam's; the implementer does not run it. Adam runs `uv run python app_gradio.py`, opens the printed local URL, clicks one example, then asks a follow-up so a multi-turn history is sent, and confirms the twin answers and the console prints a `NOTIFICATION:` line (or his phone gets a push) when he asks something unknown. Ctrl+C stops the server.
-
-If the follow-up fails with an OpenAI 400 about unexpected keys in history messages, add this normalisation inside `chat` in `app_gradio.py` and note it in the commit message:
-
-```python
-        clean = [{"role": m["role"], "content": m["content"]} for m in history]
-        return agent.reply(clean, message)
-```
+This step is Adam's; the implementer does not run it. Adam runs `uv run python app_gradio.py`, opens the printed local URL, clicks one example, then asks a follow-up so a multi-turn history is sent, and confirms the twin answers and the console prints a `NOTIFICATION:` line (or his phone gets a push) when he asks something unknown. Ctrl+C stops the server. The `chat` adapter already strips Gradio-only keys from history before calling the agent, so a multi-turn conversation sends only `role` and `content` to the model.
 
 - [ ] **Step 6: Commit**
 
