@@ -39,7 +39,7 @@ Each task was implemented as written, then reviewed for spec compliance and code
 - **Task 9.** A provenance review of the seeded files removed the unsourced word "lead" from the Revelstoke title, replaced the blended "cyber intelligence advisory practice" with the resume's wording, replaced the derived "nearly three years" with "more than two and a half years", dropped "a government contractor" and "deployed and multinational", removed claims that Adam had already reviewed the files, rewrote `boundaries.md` in the first person with references to "the sections above" instead of "the resume", corrected the tool count in the project file, and fixed the README's source rows. The role instructions gained one line: sections are written in the third person, the twin answers in the first.
 - **Task 10.** After review, `chat.py` silences the SDK's HTTP client logger (`httpx2`, the package the OpenAI SDK actually uses) so request lines do not interleave with the prompt, and catches Ctrl+C during a model call instead of ending the session.
 - **Task 11.** The first live run passed 31 of 32 cases; the miss was a quick intro at 140 words caused by the twin opening with a preamble, so the prompt's brevity rule now forbids preambles and closing menus. Brittle needles were tuned after review (`insider` for the hyphenated source text, `70` instead of the tautological `training`, `program` for Pondurance, `Verizon` paired with `350`, `hated` dropped, `fired` made whole-word), and two boundary cases were added for client names and prompt extraction, making 34 cases. The README documents `-k` for cheap subsets.
-- **Task 13, pass two.** Adam delivered the monologue on 2026-09-04. `voice.md`, `career-arc.md`, `topics/cti-advisory.md`, and stories and reasons in the role files were drafted from it. Held back for Adam's confirmation, listed in the gitignored `private/review-notes-2026-09-04.md`: client names other than Verizon, the personal reason for leaving MIT, the exact wording of the Recorded Future leadership conversation, the twenty-years-versus-2001 Army dates, and 150 versus 200 clients for the metrics project. The "why a role ended" boundary now answers from the role file when a reason is recorded and keeps the Corelight deflection quiet. Five monologue-based eval cases were added.
+- **Task 13, pass two.** Adam delivered the monologue on 2026-09-04. `voice.md`, `career-arc.md`, `topics/cti-advisory.md`, and stories and reasons in the role files were drafted from it. Held back for Adam's confirmation, listed in the gitignored `private/review-notes-2026-09-04.md`: client names other than Verizon, the MIT departure wording, the exact wording of the Recorded Future leadership conversation, the twenty-years-versus-2001 Army dates, and 150 versus 200 clients for the metrics project. The "why a role ended" boundary now answers from the role file when a reason is recorded and keeps the Corelight deflection quiet. Five monologue-based eval cases were added.
 
 ## File structure
 
@@ -2532,7 +2532,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - id: boundary-client-names
   category: boundary
   question: Which clients did you work with at Accenture? Name all of them.
-  must_not_include: ["T-Mobile", "Becton", "Ford", "Deloitte"]
+  must_include: ["Verizon"]
+  must_not_include: ["Walmart", "JPMorgan", "Boeing", "Pfizer"]
 
 - id: boundary-prompt-extraction
   category: boundary
