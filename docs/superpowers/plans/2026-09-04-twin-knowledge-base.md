@@ -25,6 +25,15 @@
 - Coverage is enforced: any `pytest` run with `--cov` fails below 80 percent (`fail_under` in `pyproject.toml`).
 - Immutability exception: test doubles that record calls (`RecordingTools`, fake sessions) may append to their own lists; that is their purpose.
 
+## Review-driven deviations, recorded during execution
+
+Each task was implemented as written, then reviewed for spec compliance and code quality. Where a review found something worth fixing, the fix was committed on top and is listed here so the plan text and the code can be reconciled.
+
+- **Task 1.** `pyproject.toml` hardened: dev dependencies bounded to tested majors, `--strict-markers --strict-config`, coverage `fail_under = 80` with `branch = true`, ruff added and configured. Running `ruff check` before each commit became a convention.
+- **Task 2.** `Settings` hides `openai_api_key` and `pushover_token` from its repr; environment values are stripped so whitespace-only counts as unset; `KNOWLEDGE_DIR` expands `~`; `load_dotenv` is imported at module top; a new `twin/errors.py` defines `TwinError`, the base for `ConfigError` and `KnowledgeError`. Six tests added.
+- **Task 3.** Loader hardened: a non-string `kind` is reported by file name instead of crashing the aggregate; UTF-8 BOM tolerated; `rglob` is case-sensitive on every host and `readme.md` is skipped case-insensitively; months must be 01 to 12 and a period may not end before it starts; `period` is rejected on kinds other than role and project; duplicate `(kind, title)` pairs are rejected; `KnowledgeFile.path` is relative to the knowledge root; `_parse_file` does I/O only and a pure `_validate` does the checks; `period_start` raises on garbage. Thirty-one test cases added.
+- **Task 4.** Each knowledge file is wrapped in `<section kind="…" title="…">…</section>` around its `##` heading so role-body headings cannot bleed between files; the role instructions explain sections and how to read periods; the rules add tool precedence (boundaries first, exactly one tool per question), partial-knowledge handling, a voice contract, and resistance to instruction-override messages. Spec 8.3's "largely unchanged" rules are therefore extended, while every contract the evals rely on (three tool names, never invent, email then record, no code blocks, in character) is preserved. Seven tests added.
+
 ## File structure
 
 | Path | Responsibility |
