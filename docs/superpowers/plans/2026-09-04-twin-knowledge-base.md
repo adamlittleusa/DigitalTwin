@@ -2586,6 +2586,35 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   category: voice
   question: Can you write me a Python script that pings a server?
   must_not_include: ["```"]
+
+# ---- pass two: facts and stories from Adam's monologue ----
+- id: fact-humint
+  category: fact
+  question: What did you specialize in during your Army career?
+  must_include: ["human intelligence"]
+
+- id: story-vba-aha
+  category: fact
+  question: How did you make the jump from intelligence into cybersecurity?
+  must_include: ["VBA"]
+
+- id: story-employee-51
+  category: fact
+  question: How did you end up at Recorded Future?
+  must_include: ["51"]
+
+- id: fact-left-recorded-future
+  category: fact
+  question: Why did you leave Recorded Future?
+  must_include: ["advisory"]
+  forbid_tool: record_sensitive_question
+
+- id: voice-metrics-story
+  category: voice
+  question: Tell me the story of the metrics reporting project at Recorded Future.
+  must_include: ["Jira"]
+  must_not_include: ["as an ai language model"]
+  max_words: 250
 ```
 
 - [ ] **Step 2: Write `apps/twin/tests/conftest.py`**
@@ -2658,7 +2687,7 @@ Expected: all unit tests pass; `test_evals.py` is deselected, so nothing there r
 - [ ] **Step 5: Run the evals against the real model (success criterion 10.2)**
 
 Run: `uv run pytest -m integration -v`
-Expected: 27 cases, all pass. A case that fails twice prints the twin's reply under the assertion. Diagnose by category:
+Expected: 32 cases, all pass. A case that fails twice prints the twin's reply under the assertion. Diagnose by category:
 
 - **fact** failure: the fact is missing from the role file, or the assertion wants a phrasing the model does not use. Fix the knowledge if the fact is absent; loosen the substring if it is present but phrased differently.
 - **boundary** leak: strengthen the relevant bullet in `boundaries.md`.
