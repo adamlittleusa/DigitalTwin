@@ -312,3 +312,13 @@ def test_no_warning_under_threshold(tmp_path: Path, caplog: pytest.LogCaptureFix
     with caplog.at_level(logging.WARNING, logger="twin.knowledge"):
         load_knowledge(tmp_path)
     assert [r for r in caplog.records if r.name == "twin.knowledge"] == []
+
+
+def test_real_knowledge_tree_loads() -> None:
+    from twin.config import DEFAULT_KNOWLEDGE_DIR
+
+    loaded = load_knowledge(DEFAULT_KNOWLEDGE_DIR)
+    kinds = {f.kind for f in loaded.files}
+    assert {"identity", "boundaries", "faq", "role", "project"} <= kinds
+    assert len([f for f in loaded.files if f.kind == "role"]) == 9
+    assert all(f.reviewed is None or len(f.reviewed) == 10 for f in loaded.files)
