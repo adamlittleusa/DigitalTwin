@@ -21,6 +21,8 @@
 - Commit messages use conventional-commit prefixes and end with the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Never print secrets. Never paste `.env` contents anywhere. `.env` already exists at the repo root and is gitignored; do not touch it.
 - Type annotations on every function signature. Frozen dataclasses for data. No mutation of inputs.
+- Before every commit that touches Python, run `uv run ruff check .` from `apps/twin` and fix what it reports (`uv run ruff check --fix .` handles import order). Ruff is configured in `pyproject.toml` with a 120-column limit.
+- Coverage is enforced: any `pytest` run with `--cov` fails below 80 percent (`fail_under` in `pyproject.toml`).
 - Immutability exception: test doubles that record calls (`RecordingTools`, fake sessions) may append to their own lists; that is their purpose.
 
 ## File structure
@@ -62,7 +64,7 @@ The spec's `PushoverTools` is realised as `TwinTools` holding a `Notifier`, so t
 - Create: `README.md`, `.env.example`, `.gitattributes`
 - Modify: `docs/superpowers/specs/2026-09-04-twin-knowledge-base-design.md` (status line only)
 
-- [ ] **Step 1: Create directories**
+- [x] **Step 1: Create directories**
 
 From the repo root, in PowerShell:
 
@@ -91,9 +93,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3",
-    "pytest-cov>=6.0",
-    "pytest-rerunfailures>=16.0",
+    "pytest>=9.1,<10",
+    "pytest-cov>=7.1,<8",
+    "pytest-rerunfailures>=16.6,<17",
+    "ruff>=0.12",
 ]
 
 [tool.uv]
@@ -103,9 +106,21 @@ package = false
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = ["integration: talks to the real model; needs OPENAI_API_KEY"]
+addopts = ["--strict-markers", "--strict-config"]
 
 [tool.coverage.run]
 source = ["twin"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
 ```
 
 `apps/twin/twin/examples.py`:
