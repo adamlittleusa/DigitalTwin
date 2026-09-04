@@ -253,7 +253,7 @@ spec is complete; they are not tasks in its implementation plan.
 | `config.py` | Read environment, validate, expose an immutable `Settings`. | `Settings.from_env() -> Settings`; raises `ConfigError` listing every missing required variable. |
 | `knowledge.py` | Find, parse, validate, order knowledge files. | `load_knowledge(root: Path) -> Knowledge`; `Knowledge` is a frozen dataclass holding a tuple of `KnowledgeFile` (path, meta, body). |
 | `prompt.py` | Build the system prompt from `Knowledge`. | `build_system_prompt(knowledge: Knowledge) -> str`. Pure function. |
-| `tools.py` | Tool schemas, handlers, dispatch. | `ToolRegistry` protocol with `schemas` and `call(name, args) -> str`; `PushoverTools` implementation; `dispatch(registry, tool_calls) -> list[dict]`. Three tools: the course's `record_user_details` and `record_unknown_question`, plus `record_sensitive_question`, which pushes a notification when the twin deflects a question on a topic a boundary says Adam handles himself. |
+| `tools.py` | Tool schemas, handlers, dispatch. | `ToolRegistry` protocol with `schemas` and `call(name, args) -> str`; `TwinTools(notifier)` implementation over a `Notifier` protocol with `PushoverNotifier` and `LoggingNotifier` behind it; `RecordingTools` test double; `dispatch(registry, tool_calls) -> list[dict]`. Three tools: the course's `record_user_details` and `record_unknown_question`, plus `record_sensitive_question`, which pushes a notification when the twin deflects a question on a topic a boundary says Adam handles himself. |
 | `agent.py` | The chat-completions loop. | `TwinAgent(client, settings, system_prompt, tools)`; `reply(history, message) -> str`. `history` is a list of `{role, content}` dicts in the OpenAI messages format and is passed to the model unchanged. |
 | `examples.py` | The example questions. | `EXAMPLE_QUESTIONS: tuple[str, ...]`. |
 | `scripts/chat.py` | Wire the above into a terminal REPL. | `main() -> int`; exits 1 with one message when config or knowledge is invalid. |
@@ -293,8 +293,13 @@ in.
   to the model, and the error is logged with the tool name and arguments. The
   chat continues.
 - An unknown tool name returns "unknown tool" to the model, as today.
-- Pushover HTTP failures are caught in `PushoverTools`, logged, and reported
+- Pushover HTTP failures are caught in `TwinTools`, logged, and reported
   to the model as "notification failed"; the conversation is not affected.
+- Pushover rejects messages over 1,024 characters, so the notifier truncates
+  longer text with a trailing mark rather than losing the alert. Visitor
+  text goes into labelled fields with control characters and line breaks
+  collapsed, so a visitor cannot forge the notification's structure on
+  Adam's phone.
 - The completion loop allows at most 5 consecutive tool rounds. If the cap
   is hit, the agent makes one final completion with `tool_choice="none"`
   and returns its text, so the visitor always gets a reply rather than an
@@ -343,7 +348,10 @@ API key. Target 80 percent line coverage of the `twin` package, measured with
   question: How long were you at Recorded Future?
   must_include: ["2018", "2022"]     # case-insensitive substrings, all required
   must_not_include: []
+  must_include_words: []             # whole-word matches, for short tokens such as "AI"
+  must_not_include_words: []
   expect_tool: null                  # or a tool name that must be called
+  forbid_tool: null                  # or a tool name that must not be called
   max_words: null
 ```
 

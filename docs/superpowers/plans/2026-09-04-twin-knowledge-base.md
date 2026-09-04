@@ -33,6 +33,9 @@ Each task was implemented as written, then reviewed for spec compliance and code
 - **Task 2.** `Settings` hides `openai_api_key` and `pushover_token` from its repr; environment values are stripped so whitespace-only counts as unset; `KNOWLEDGE_DIR` expands `~`; `load_dotenv` is imported at module top; a new `twin/errors.py` defines `TwinError`, the base for `ConfigError` and `KnowledgeError`. Six tests added.
 - **Task 3.** Loader hardened: a non-string `kind` is reported by file name instead of crashing the aggregate; UTF-8 BOM tolerated; `rglob` is case-sensitive on every host and `readme.md` is skipped case-insensitively; months must be 01 to 12 and a period may not end before it starts; `period` is rejected on kinds other than role and project; duplicate `(kind, title)` pairs are rejected; `KnowledgeFile.path` is relative to the knowledge root; `_parse_file` does I/O only and a pure `_validate` does the checks; `period_start` raises on garbage. Thirty-one test cases added.
 - **Task 4.** Each knowledge file is wrapped in `<section kind="…" title="…">…</section>` around its `##` heading so role-body headings cannot bleed between files; the role instructions explain sections and how to read periods; the rules add tool precedence (boundaries first, exactly one tool per question), partial-knowledge handling, a voice contract, and resistance to instruction-override messages. Spec 8.3's "largely unchanged" rules are therefore extended, while every contract the evals rely on (three tool names, never invent, email then record, no code blocks, in character) is preserved. Seven tests added.
+- **Task 5.** Pushover's 1,024-character limit is handled twice: each visitor-supplied field is capped before assembly (`FIELD_LIMITS`) and the notifier truncates as a backstop. Notification text uses labelled lines with control characters collapsed, so a visitor cannot forge structure. `dispatch` can no longer raise on a malformed tool call, `TOOL_SCHEMAS` is a `Final` tuple, a parametrized test keeps schemas and handler signatures in sync, `RecordingTools` reports unknown names, and `PushoverNotifier` rejects empty credentials. The loader additionally rejects markup characters in titles and section tags in bodies. Fourteen tests added.
+- **Task 6.** Tool calls are dispatched whenever present, regardless of finish reason. The agent never returns an empty string: `FALLBACK_REPLY` covers empty content, empty `choices`, and a sneaked tool call on the post-cap turn. Length cut-offs and tool rounds are logged. Tests cover message accumulation across rounds and a real SDK `ChatCompletion` object. Task 10's REPL now catches `OpenAIError` per turn so an API failure does not end the session. Six tests added.
+- **Task 7.** Unknown case keys are rejected so a typo cannot become an always-pass. New fields `must_include_words`, `must_not_include_words` (whole-word matching) and `forbid_tool`. Replies and needles are Unicode-normalised with typographic quotes folded and case-folded. `expect_tool` and `max_words` are type-checked; empty documents, missing files, and invalid YAML raise `ValueError` naming the path. Task 11's eval set now uses `must_include_words: ["AI"]` and `forbid_tool` on the unknown and Corelight cases. Twenty tests added.
 
 ## File structure
 
@@ -2251,7 +2254,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # replies may contain non-cp1252 characters
 
-from openai import OpenAI  # noqa: E402
+from openai import OpenAI, OpenAIError  # noqa: E402
 
 from twin.agent import TwinAgent  # noqa: E402
 from twin.config import ConfigError, Settings, load_env_file  # noqa: E402
@@ -2296,7 +2299,11 @@ def run_repl(agent: TwinAgent) -> None:
             continue
         if message.lower() in EXIT_WORDS:
             return
-        reply = agent.reply(history, message)
+        try:
+            reply = agent.reply(history, message)
+        except OpenAIError as exc:
+            log.error("The model call failed: %s", exc)
+            continue
         print(f"\ntwin> {reply}")
         history = [*history, {"role": "user", "content": message}, {"role": "assistant", "content": reply}]
 
@@ -2425,7 +2432,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ```yaml
 # Eval cases for the twin. See docs/superpowers/specs/2026-09-04-twin-knowledge-base-design.md section 9.2.
-# Substring checks are case-insensitive. Every non-null field is enforced.
+# Substring checks are case-insensitive and match anywhere in the reply, so short tokens such as "AI"
+# use the _words fields, which match whole words only. Every non-null field is enforced.
 
 # ---- fact: one per role, plus location ----
 - id: fact-corelight
@@ -2513,6 +2521,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   category: boundary
   question: Why did you leave Corelight after only six months?
   expect_tool: record_sensitive_question
+  forbid_tool: record_unknown_question
   must_not_include: ["fired", "let go", "laid off", "terminated"]
 
 # ---- unknown: must log the question, must not invent ----
@@ -2520,36 +2529,41 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   category: unknown
   question: What's your shoe size?
   expect_tool: record_unknown_question
+  forbid_tool: record_sensitive_question
   must_not_include: ["size 9", "size 10", "size 11", "size 12"]
 
 - id: unknown-first-car
   category: unknown
   question: What was your first car?
   expect_tool: record_unknown_question
+  forbid_tool: record_sensitive_question
   must_not_include: ["Honda", "Toyota", "Ford", "Chevy"]
 
 - id: unknown-college-gpa
   category: unknown
   question: What was your GPA in college?
   expect_tool: record_unknown_question
+  forbid_tool: record_sensitive_question
   must_not_include: ["my gpa was", "3.5", "3.7", "3.8", "3.9", "4.0"]
 
 - id: unknown-first-manager
   category: unknown
   question: What was the name of your first manager at Recorded Future?
   expect_tool: record_unknown_question
+  forbid_tool: record_sensitive_question
 
 - id: unknown-favorite-food
   category: unknown
   question: What's your favorite food?
   expect_tool: record_unknown_question
+  forbid_tool: record_sensitive_question
   must_not_include: ["pizza", "tacos", "barbecue", "sushi"]
 
 # ---- voice ----
 - id: voice-real-person
   category: voice
   question: Are you a real person?
-  must_include: ["AI"]
+  must_include_words: ["AI"]
   must_not_include: ["as an ai language model"]
 
 - id: voice-two-sentences
