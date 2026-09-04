@@ -1618,19 +1618,23 @@ if __name__ == "__main__":
 uv run --with python-docx python scripts/extract_docx.py "C:\Users\adaml\OneDrive\Desktop\resumes\workday resume 2026.docx" "..\..\knowledge\raw\resume-2026.md"
 ```
 
-Expected: `Wrote ..\..\knowledge\raw\resume-2026.md (about 5300 bytes)`. Open the file and confirm it begins with `CORELIGHT — March 2026 to Present` and ends with the `EARLIER INTELLIGENCE OPERATIONS` paragraph.
+Expected: `Wrote ..\..\knowledge\raw\resume-2026.md (about 5300 bytes)`. Open the file and confirm it begins with `CORELIGHT — March 2026 to Present` and ends with the Role Description paragraph under `EARLIER INTELLIGENCE OPERATIONS`.
 
-- [ ] **Step 3: Extract the LinkedIn export too**
+- [ ] **Step 3: Save the two secondary sources: the LinkedIn export and Adam's summary**
 
-The LinkedIn export is a secondary source for a few facts the resume lacks: the profile headline, the Corelight end date, and Recorded Future's Boston location and consultant-era duties. Save its text next to the resume so every sentence in Task 9 has a source on disk:
+The LinkedIn export is a secondary source for a few facts the resume lacks: the profile headline, the Corelight end date, and Recorded Future's Boston location and consultant-era duties. Adam's own four-line `summary.txt` from the course folder is the source for where he grew up. Save both next to the resume so every sentence in Task 9 has a source on disk:
+
+```powershell
+Copy-Item "C:\Users\adaml\OneDrive\Desktop\PortfolioProjects\twin\summary.txt" "..\..\knowledge\raw\summary-2026-09-02.md"
+```
 
 ```powershell
 uv run --with pypdf python -c "from pypdf import PdfReader; from pathlib import Path; r = PdfReader(r'C:\Users\adaml\OneDrive\Desktop\PortfolioProjects\twin\linkedin.pdf'); Path(r'..\..\knowledge\raw\linkedin-2026-09-02.md').write_text('# LinkedIn profile export, 2026-09-02\n\n' + '\n'.join(p.extract_text() or '' for p in r.pages), encoding='utf-8')"
 ```
 
-Expected: `knowledge/raw/linkedin-2026-09-02.md` exists at roughly 7,400 characters. It is noisy (ads, "...more" truncation) and is never loaded by the twin; `raw/` is skipped by the loader and ignored by git.
+Expected: `knowledge/raw/summary-2026-09-02.md` exists (one paragraph, about 250 bytes) and `knowledge/raw/linkedin-2026-09-02.md` exists at roughly 7,500 characters. The LinkedIn text is noisy (ads, "...more" truncation). Neither is ever loaded by the twin; `raw/` is skipped by the loader and ignored by git.
 
-- [ ] **Step 4: Confirm git ignores both, then commit the script only**
+- [ ] **Step 4: Confirm git ignores all three, then commit the script only**
 
 ```bash
 git status --short
@@ -1649,9 +1653,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ### Task 9: Seed the knowledge base, pass one
 
-Sources are `knowledge/raw/resume-2026.md` (primary) and `knowledge/raw/linkedin-2026-09-02.md` (secondary), plus the approved spec for the project file. Sections with no source content stay as an empty heading. Company descriptions use only the words the sources use. Do not invent.
+Sources are `knowledge/raw/resume-2026.md` (primary), `knowledge/raw/linkedin-2026-09-02.md` and `knowledge/raw/summary-2026-09-02.md` (secondary), plus the approved spec for the project file. Sections with no source content stay as an empty heading. Company descriptions use only the words the sources use. Do not invent.
 
-Sentences taken from the LinkedIn export rather than the resume: the "focus" sentence in `identity.md` (the profile headline), the Corelight end date, and in `roles/2018-recorded-future.md` the Boston location and the consultant-era duties paragraph.
+Sentences taken from the LinkedIn export rather than the resume: the "focus" sentence in `identity.md` (the profile headline), the Corelight end date, and in `roles/2018-recorded-future.md` the Boston location and the consultant-era duties paragraph. The only sentence from the summary: "grew up in Texas" in `identity.md` and `faq.md`.
 
 **Source conflicts, for Adam to settle on review, not for the implementer to resolve.** The files below use the resume's dates except where noted.
 
@@ -1742,7 +1746,7 @@ interviews produce opinion pieces.
 
 | File | Seeded | Interviewed | Reviewed |
 |---|---|---|---|
-| `identity.md` | resume + LinkedIn headline, pass 1 | | |
+| `identity.md` | resume + LinkedIn headline + summary, pass 1 | | |
 | `voice.md` | waiting on monologue | | |
 | `boundaries.md` | defaults, pass 1 | | |
 | `career-arc.md` | waiting on monologue | | |
@@ -1756,7 +1760,7 @@ interviews produce opinion pieces.
 | `roles/2013-mang-training-manager.md` | resume, pass 1 | | |
 | `roles/2001-army-intel-ops.md` | resume, pass 1 | | |
 | `projects/digital-twin.md` | spec, pass 1 | | |
-| `faq.md` | resume, pass 1 | | |
+| `faq.md` | resume + summary, pass 1 | | |
 ````
 
 - [ ] **Step 3: Write `knowledge/identity.md`**
@@ -1771,7 +1775,7 @@ public: true
 
 Adam Little is a security leader who works where AI security architecture, security operations, and cyber threat intelligence meet. He describes his focus as building scalable security programs for emerging AI and enterprise technology.
 
-His most recent role was Principal Product Manager for AI-Driven Security Response at Corelight, where he owned product strategy for Model Context Protocol (MCP) integrations, SIEM content, and agentic investigation workflows. Before that he spent two and a half years at Accenture building and leading a cyber intelligence advisory practice, and four years at Recorded Future moving from intelligence consulting into product architecture. His career started in U.S. Army intelligence in 2001.
+His most recent role was Principal Product Manager for AI-Driven Security Response at Corelight, where he owned product strategy for Model Context Protocol (MCP) integrations, SIEM content, and agentic investigation workflows. Before that he spent nearly three years at Accenture building and leading a cyber intelligence advisory practice, and four years at Recorded Future moving from intelligence consulting into product architecture. His career started in U.S. Army intelligence in 2001.
 
 He lives in the Greater Boston area and grew up in Texas.
 
@@ -2262,6 +2266,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # replies may contain non-cp1252 characters
 
 from openai import OpenAI  # noqa: E402
 
