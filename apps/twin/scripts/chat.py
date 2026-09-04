@@ -62,12 +62,16 @@ def run_repl(agent: TwinAgent) -> None:
         except OpenAIError as exc:
             log.error("The model call failed: %s", exc)
             continue
+        except KeyboardInterrupt:
+            print("\n(cancelled)")
+            continue
         print(f"\ntwin> {reply}")
         history = [*history, {"role": "user", "content": message}, {"role": "assistant", "content": reply}]
 
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.getLogger("httpx2").setLevel(logging.WARNING)  # the OpenAI SDK's HTTP client logs every request at INFO
     load_env_file()
     try:
         settings = Settings.from_env()

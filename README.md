@@ -30,3 +30,4 @@ optional).
     cd apps/twin
     uv run pytest -m "not integration" --cov=twin --cov-report=term-missing
     uv run pytest -m integration        # runs the evals against the real model
+    uv run pytest -m integration -k "boundary or unknown"   # a subset; case ids work with -k
