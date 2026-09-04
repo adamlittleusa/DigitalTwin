@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from twin import config
-from twin.config import ConfigError, Settings
+from twin.config import ConfigError, Settings, load_env_file
 
 FULL_ENV = {
     "OPENAI_API_KEY": "sk-test",
@@ -65,3 +65,47 @@ def test_settings_are_immutable() -> None:
 
 def test_repo_root_points_at_repository() -> None:
     assert (config.REPO_ROOT / "docs" / "superpowers").is_dir()
+
+
+def test_repr_hides_secrets() -> None:
+    settings = Settings.from_env(FULL_ENV)
+    text = repr(settings)
+    assert "sk-test" not in text
+    assert "token" not in text
+    assert "gpt-test" in text
+
+
+def test_from_env_reads_process_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-from-process")
+    monkeypatch.delenv("TWIN_MODEL", raising=False)
+    settings = Settings.from_env()
+    assert settings.openai_api_key == "sk-from-process"
+    assert settings.model == config.DEFAULT_MODEL
+
+
+def test_whitespace_only_values_count_as_unset() -> None:
+    with pytest.raises(ConfigError):
+        Settings.from_env({"OPENAI_API_KEY": "   "})
+    settings = Settings.from_env({"OPENAI_API_KEY": " sk-test ", "TWIN_MODEL": "  ", "PUSHOVER_USER": " "})
+    assert settings.openai_api_key == "sk-test"
+    assert settings.model == config.DEFAULT_MODEL
+    assert settings.pushover_user is None
+
+
+def test_knowledge_dir_expands_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    settings = Settings.from_env({"OPENAI_API_KEY": "sk-test", "KNOWLEDGE_DIR": "~/kb"})
+    assert settings.knowledge_dir == tmp_path / "kb"
+
+
+def test_load_env_file_tolerates_missing_file(tmp_path: Path) -> None:
+    load_env_file(tmp_path / "does-not-exist.env")
+
+
+def test_errors_share_a_base() -> None:
+    from twin.errors import TwinError
+    from twin.knowledge import KnowledgeError
+
+    assert issubclass(ConfigError, TwinError)
+    assert issubclass(KnowledgeError, TwinError)

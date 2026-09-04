@@ -11,6 +11,8 @@ from typing import Any
 
 import frontmatter
 
+from twin.errors import TwinError
+
 log = logging.getLogger(__name__)
 
 KINDS: tuple[str, ...] = (
@@ -26,7 +28,7 @@ CHARS_PER_TOKEN = 4
 _PERIOD_RE = re.compile(r"^(\d{4})(?:-(\d{2}))? to (?:(\d{4})(?:-(\d{2}))?|present)$")
 
 
-class KnowledgeError(Exception):
+class KnowledgeError(TwinError):
     """Raised when the knowledge directory is missing or a file is invalid."""
 
 
