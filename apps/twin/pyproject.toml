@@ -13,9 +13,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3",
-    "pytest-cov>=6.0",
-    "pytest-rerunfailures>=16.0",
+    "pytest>=9.1,<10",
+    "pytest-cov>=7.1,<8",
+    "pytest-rerunfailures>=16.6,<17",
+    "ruff>=0.12",
 ]
 
 [tool.uv]
@@ -25,6 +26,18 @@ package = false
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = ["integration: talks to the real model; needs OPENAI_API_KEY"]
+addopts = ["--strict-markers", "--strict-config"]
 
 [tool.coverage.run]
 source = ["twin"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
