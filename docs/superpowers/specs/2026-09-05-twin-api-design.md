@@ -101,6 +101,7 @@ apps/twin/
       __init__.py
       chat.py               twin-chat (moved from scripts/chat.py)
       smoke.py              twin-smoke (moved from scripts/smoke.py)
+      api.py                twin-api (uvicorn entry point)
     api/
       __init__.py
       app.py                create_app(runtime) and the module-level app
@@ -131,12 +132,17 @@ apps/twin/
 | `ToolResult` | `name`, `ok: bool` | The tool ran; `ok` is false when the handler reported an error or "notification failed". |
 | `Delta` | `text` | A piece of the answer. |
 | `Project` | `slug`, `title`, `summary`, `url` | `show_project` produced a card. |
-| `Done` | `reply`, `tools: tuple[str, ...]`, `rounds: int` | The turn is complete. `reply` is the full text, never empty. |
+| `Done` | `reply`, `tools: tuple[str, ...]`, `rounds: int`, `usage: Usage \| None` | The turn is complete. `reply` is the full text, never empty. `Usage` is a frozen `(prompt_tokens, completion_tokens, cached_tokens)` summed over the turn's calls, or `None` when no usage chunk arrived. |
 | `Error` | `code`, `message` | Something failed mid-turn; always followed by `Done`. |
 
 Ordering guarantees: exactly one `Done`, always last. `Step(thinking)`
-precedes every model call. `Delta` events appear only after the last tool
-round. `Error` appears at most once. The labels for tools:
+precedes every model call; the post-cap call carries
+`round = MAX_TOOL_ROUNDS + 1`. `Delta` events may appear in any round, and
+`Done.reply` is exactly the concatenation of every `Delta` text in order,
+or `FALLBACK_REPLY` when there was none. `Step(composing)` is yielded once
+per turn, before its first `Delta`. `Error` appears at most once.
+`Project` is yielded only for a `show_project` call whose slug the catalog
+knows, at most once per slug per turn. The labels for tools:
 
 | Tool | Label |
 |---|---|
@@ -153,18 +159,22 @@ round. `Error` appears at most once. The labels for tools:
 2. For each round up to `MAX_TOOL_ROUNDS`:
    - Yield `Step(thinking, round)`.
    - Call `chat.completions.create(..., stream=True, tools=..., tool_choice="auto", stream_options={"include_usage": True}, safety_identifier=<hashed key>, prompt_cache_key=<prompt version key>, timeout=<settings>)`.
-   - Consume chunks. Text deltas: on the first one yield `Step(composing)`,
-     then yield `Delta` per chunk and append to a buffer. Tool-call
-     fragments: accumulate `id`, `name`, and `arguments` per `index`. Stop
-     on the chunk whose choice has a `finish_reason`, then read the usage
-     chunk if present.
-   - If tool calls were accumulated: for each, yield `ToolCall`, run it
-     through `dispatch` (unchanged), yield `ToolResult`, and for
-     `show_project` also yield `Project` from the catalog. Append the
-     assistant message (reconstructed with the accumulated tool calls) and
-     the tool messages, and continue to the next round. Text that arrived
-     in the same round as tool calls is discarded, matching today's
-     behaviour where a tool-call turn's content is not shown.
+   - Consume chunks. Text deltas: on the first of the turn yield
+     `Step(composing)`; yield `Delta` per chunk and append to the turn's
+     buffer. Tool-call fragments: accumulate `id`, `name`, and `arguments`
+     per `index`. Stop on the chunk whose choice has a `finish_reason`,
+     then read the usage chunk if present and add it to the turn's usage
+     total.
+   - If tool calls were accumulated: merge the fragments into call objects
+     with the attribute shape `dispatch` reads (`id`, `function.name`,
+     `function.arguments`); yield `ToolCall` for each; run them through
+     `dispatch` (unchanged); yield `ToolResult` for each; and for a
+     `show_project` call whose `slug` argument the catalog knows, yield
+     `Project`. Append the assistant message as a plain dict (`role`,
+     `content` set to the round's text or `None`, `tool_calls` in the
+     API's own shape) and the tool messages, and continue. Text that
+     arrived in a tool round has already been streamed and stays part of
+     the reply; nothing is retracted.
    - If no tool calls: the buffer is the reply; yield `Done` and stop.
 3. If the cap is reached, yield `Step(thinking)`, make one streamed call
    with `tool_choice="none"`, stream its text, yield `Done`.
@@ -177,12 +187,19 @@ round. `Error` appears at most once. The labels for tools:
 
 `reply(history, message) -> str` iterates `run` and returns `Done.reply`.
 `RecordingTools` and the evals are unaffected. Logging inside the agent
-stays as it is (round and tool names), plus one line per turn with rounds,
-tool names, time to first delta, and total time; no message text.
+stays as it is (round and tool names); the API writes the per-request line
+(section 13).
 
-The hashed key and the cache key are optional constructor arguments to
-`TwinAgent` (`safety_identifier: str | None`, `prompt_cache_key: str |
-None`) so the REPL and evals can omit them.
+Before every model call, `run` calls `budget.take()` when a `DailyBudget`
+was given, purely for accounting: the agent never refuses a call, so a turn
+that starts with budget left always finishes its rounds. Refusal happens
+only at the request boundary (section 11).
+
+`TwinAgent` gains optional constructor arguments, all defaulting to `None`
+so the REPL and evals can omit them: `safety_identifier: str | None`,
+`prompt_cache_key: str | None`, `budget: DailyBudget | None`, and
+`catalog: ProjectCatalog | None` (needed to emit `Project`). An agent is
+built per request (section 9), so no tool or agent state crosses requests.
 
 ## 8. `show_project` and the project catalog
 
@@ -197,15 +214,20 @@ None`) so the REPL and evals can omit them.
   boundary. `url` is `f"{site_url}/projects/{slug}"`.
 - `catalog.get(slug) -> ProjectCard | None`, `catalog.cards -> tuple`.
 
-`tools.py` gains `SHOW_PROJECT`, a schema whose `slug` property carries an
-`enum` of the catalog's slugs, built at wiring time by
-`TwinTools(notifier, catalog=catalog)`. The handler returns
-`"Shown: <title>"` for a known slug and `"Unknown project: <slug>. Known:
-<comma-separated slugs>"` otherwise. `TwinTools` records the last shown
-card so `run` can emit the `Project` event; `RecordingTools` accepts the
-call and records it like any other. Because the schema is built from the
-catalog, the sync test that compares schemas to handler signatures keeps
-passing.
+`tools.py` gains `SHOW_PROJECT`, a static schema added to `TOOL_SCHEMAS`
+(four tools) whose single `slug` property is a plain string described as
+"one of the project slugs named in the knowledge sections".
+`TwinTools(notifier, catalog=None)` gains a `show_project(slug)` handler:
+with a catalog it returns `"Shown: <title>"` for a known slug and
+`"Unknown project: <slug>. Known: <comma-separated slugs>"` otherwise;
+without a catalog it returns `"No projects available"`. `RecordingTools`
+is unchanged and therefore already advertises and records the tool, so
+evals and `twin-smoke` exercise it. The schema-to-signature sync test keeps
+passing because the schema is static and the handler signature is
+`(slug: str)`. The `Project` event is the agent's job: `run` holds the
+catalog and, after dispatching a `show_project` call, looks up the call's
+own `slug` argument; a known slug yields `Project`, an unknown one yields
+nothing, and a slug already shown this turn is not shown again.
 
 `prompt.py` gains one rule: "When one of the projects in the sections
 above is what the visitor is asking about, or the natural next thing to
@@ -226,6 +248,9 @@ class Runtime:
     notifier: Notifier            # already wrapped by RateLimitedNotifier
     client: Any                   # OpenAI client
     clock: Clock
+    limiter: RateLimiter          # app lifetime, shared by every request
+    budget: DailyBudget           # app lifetime, shared by every request
+    prompt_cache_key: str
 
 def load_runtime(env=None, *, client=None, clock=None) -> Runtime
 def build_agent(runtime, *, tools=None, safety_identifier=None) -> TwinAgent
@@ -237,18 +262,23 @@ knowledge loaded and validated, catalog built, prompt built once, notifier
 chosen (Pushover when configured, logging otherwise) and wrapped with the
 hourly cap, client constructed unless one is injected. It raises the
 existing `TwinError` subclasses; callers print one line and exit 1, as the
-REPL does today. `build_agent` produces a `TwinAgent` with `TwinTools` over
-the runtime's notifier and catalog, or with an injected registry (evals,
-tests, smoke).
+REPL does today. `build_agent` is called once per request and produces a `TwinAgent` with
+`TwinTools` over the runtime's notifier and catalog (or an injected
+registry for evals, tests, and smoke), plus the runtime's budget, catalog,
+and prompt cache key and the caller's safety identifier.
 
 `pyproject.toml` switches to a hatchling build with the package installable
 (`[tool.uv] package = false` removed), adds `fastapi`, `sse-starlette`,
 `uvicorn[standard]`, and for tests `httpx` (the test client's dependency,
 distinct from the `httpx2` package the OpenAI SDK uses), and declares
-console scripts `twin-chat`, `twin-smoke`, and `twin-api` (runs uvicorn on
-`twin.api.app:app`). `pythonpath = ["."]` and the `sys.path` inserts go
-away. The prompt version key is `f"twin-prompt-{sha256(system_prompt)[:12]}"`
-computed in `load_runtime`.
+console scripts `twin-chat` (`twin.cli.chat:main`), `twin-smoke`
+(`twin.cli.smoke:main`), and `twin-api` (`twin.cli.api:main`, which runs
+uvicorn on `twin.api.app:app` with the port from settings). `pythonpath =
+["."]` and the `sys.path` inserts go away. The prompt version key is
+`f"twin-prompt-{sha256(system_prompt)[:12]}"` computed in `load_runtime`.
+Every environment variable, including the CORS origins, is read only
+through `Settings.from_env`, so `create_app(runtime)` needs no environment
+at all in tests.
 
 ## 10. The HTTP API
 
@@ -278,9 +308,13 @@ Validation, in `schemas.py` with pydantic, all before any model call:
 
 - `conversation_id`: optional string, 8 to 64 characters of `[A-Za-z0-9_-]`;
   used only for logging correlation.
-- `messages`: 1 to 16 items; roles alternate starting and ending with
+- `messages`: 1 to 64 items; roles alternate starting and ending with
   `user`; each `content` is a non-empty string of at most 2,000 characters
-  after stripping; total content at most 24,000 characters.
+  after stripping; total content at most 24,000 characters. Shape and size
+  failures are 400s. After shape validation the handler counts user
+  messages; more than `TWIN_MAX_USER_MESSAGES` is the 413 in section 10.2,
+  checked before any limit or model call, so the cap is reachable and
+  configurable.
 - Request body at most 32 KB (middleware rejects larger with 413 before
   parsing).
 
@@ -303,9 +337,22 @@ Error bodies never contain stack traces, file paths, or model error text.
 
 ### 10.3 The stream
 
-`sse.py` maps each agent event to one SSE frame: `event:` is the kind
-(`step`, `tool`, `tool_result`, `delta`, `project`, `done`, `error`) and
-`data:` is the event's fields as JSON. Frames are produced by
+`sse.py` maps each agent event to one SSE frame and projects it onto a
+visitor-safe subset, so internal tool names and token usage never reach
+the browser:
+
+| Agent event | `event:` | `data:` fields |
+|---|---|---|
+| `Step` | `step` | `phase`, `round` |
+| `ToolCall` | `tool` | `label` only |
+| `ToolResult` | `tool_result` | `ok` only |
+| `Delta` | `delta` | `text` |
+| `Project` | `project` | `slug`, `title`, `summary`, `url` |
+| `Done` | `done` | `reply`, `rounds` |
+| `Error` | `agent_error` | `code`, `message` |
+
+The wire name `agent_error` avoids colliding with the browser
+`EventSource` object's own `error` event. Frames are produced by
 `sse-starlette`'s `EventSourceResponse` from an async generator that runs
 the synchronous `agent.run` in a worker thread and forwards its events, with
 a heartbeat comment every 15 seconds. When the client disconnects, the
@@ -316,8 +363,9 @@ notifies. Response headers include `Cache-Control: no-store` and
 
 ### 10.4 CORS and headers
 
-`security.py` reads `TWIN_ALLOWED_ORIGINS` (comma-separated) and installs
-FastAPI's CORS middleware for exactly those origins, methods `GET` and
+`security.py` takes the allowed origins from `Settings` (populated from
+`TWIN_ALLOWED_ORIGINS`, comma-separated) and installs FastAPI's CORS
+middleware for exactly those origins, methods `GET` and
 `POST`, no credentials. Every response carries `X-Request-Id` (a UUID
 generated per request) so a visitor can quote it. The client key is the
 first address in `X-Forwarded-For` when `TWIN_TRUST_PROXY` is true,
@@ -329,21 +377,28 @@ logged or sent to OpenAI as `safety_identifier`.
 `twin/limits.py`, all pure and driven by an injected `Clock` protocol with
 `now() -> float`:
 
-- `RateLimiter(rate_per_hour=20, burst=5)`: a token bucket per client key.
+- `RateLimiter(rate_per_hour=20, burst=5)`: a token bucket per client key
+  with capacity `rate_per_hour + burst` (25) and a refill of
+  `rate_per_hour` tokens per hour, so a visitor can send 25 messages back
+  to back and the 26th is refused until a token refills.
   `allow(key) -> Decision(allowed: bool, retry_after: int)`. Buckets for
   keys idle over two hours are dropped on access to bound memory.
-- `DailyBudget(limit=500)`: counts model calls per UTC day; `take() -> bool`
-  returns false once the limit is reached and resets when the date changes.
-  Counted at each model call inside the loop, so a turn with two rounds
-  costs two; a turn that starts with budget left is allowed to finish its
-  rounds even if it crosses the line.
+- `DailyBudget(limit=500)`: counts model calls per UTC day.
+  `remaining() -> int` and `take() -> None`, which increments the day's
+  count and resets it when the date changes. The request handler refuses
+  with the 503 when `remaining()` is zero; the agent calls `take()` before
+  every model call for accounting only, so a turn with two rounds costs
+  two and a turn that starts with budget left finishes its rounds even if
+  it crosses the line.
 - `RateLimitedNotifier(inner, per_hour=10)`: implements `Notifier`; forwards
   the first ten pushes in any rolling hour and logs the rest at warning
   with the text, so nothing is silently lost.
 
 Where each is enforced: the request handler checks the per-conversation
-count (validation), then `RateLimiter.allow`, then `DailyBudget` has
-capacity for at least one call; the agent takes from the budget per call.
+count (validation), then `RateLimiter.allow`, then
+`DailyBudget.remaining()` is at least one; the agent records each call
+with `take()`. The limiter and budget live on the `Runtime`, so they last
+for the life of the process and are shared by every request.
 All limits are configurable through the environment (section 12). With one
 Fly machine these in-memory limits are exact; a second instance would
 double them, which the deployment spec must not do without adding a store.
@@ -359,7 +414,7 @@ New variables, all with defaults, read by `Settings.from_env`:
 | `TWIN_TRUST_PROXY` | `false` | Take the client address from `X-Forwarded-For`. True on Fly. |
 | `TWIN_LOG_SALT` | required in production, random per process otherwise | Salt for hashing client keys. |
 | `TWIN_PER_CLIENT_HOURLY` | `20` | Messages per visitor per hour. |
-| `TWIN_PER_CLIENT_BURST` | `5` | Bucket size. |
+| `TWIN_PER_CLIENT_BURST` | `5` | Extra capacity above the hourly rate; the bucket holds rate plus burst. |
 | `TWIN_MAX_USER_MESSAGES` | `8` | Per conversation. |
 | `TWIN_DAILY_CALL_LIMIT` | `500` | Model calls per UTC day. |
 | `TWIN_PUSHOVER_HOURLY` | `10` | Pushes per rolling hour. |
@@ -375,8 +430,9 @@ trusted proxy implies a real deployment.
 One JSON line per chat request, emitted when the stream ends:
 `request_id`, `conversation_id`, `client` (hash), `messages`, `rounds`,
 `tools`, `first_delta_ms`, `total_ms`, `outcome` (`ok`, `error`,
-`disconnected`), `usage` (prompt, completion, cached tokens when the usage
-chunk arrived). Never the message text. Limit rejections log one line with
+`disconnected`), `usage` taken from `Done.usage` (prompt, completion, and
+cached tokens when the usage chunk arrived). The API measures the two
+timings itself around the stream. Never the message text. Limit rejections log one line with
 the code and the hashed key. `/v1/health` is unauthenticated and cheap; it
 does not call the model.
 
@@ -386,7 +442,10 @@ does not call the model.
 `twin/` and the repo's `knowledge/` directory (the image bundles the
 reviewed knowledge; `raw/` is excluded by `.dockerignore`); non-root user;
 `EXPOSE 8080`; `CMD ["twin-api"]`. `KNOWLEDGE_DIR` is set explicitly in the
-image so `REPO_ROOT` walk-up is not relied on. The build context is the
+image so `REPO_ROOT` walk-up is not relied on, and the walk-up itself is
+made safe: when the package sits shallower than expected (an installed
+wheel, a container), `config.py` falls back to the current working
+directory instead of failing at import. The build context is the
 repo root so `knowledge/` is reachable. Local check: build, run with the
 repo `.env` passed as `--env-file`, hit `/v1/health` and one `/v1/chat`
 with `curl -N`.
@@ -404,7 +463,10 @@ Unit, no network, written first:
   `FALLBACK_REPLY`; an exception before the first chunk and one
   mid-stream, both yielding `Error` then `Done` and never raising;
   `reply()` returns `Done.reply`; the safety and cache keys are passed
-  through; `history` not mutated.
+  through; `budget.take()` called once per model call; `history` not
+  mutated; and a real `TwinTools` reached through the streaming path (a
+  tool call assembled from fragments arrives at the handler with parsed
+  arguments and a `ToolResult(ok=True)` follows).
 - `test_projects.py`: catalog from a temp knowledge tree; summary
   extraction with and without the heading; the 280-character cut; unknown
   slug; url shape.
@@ -420,8 +482,10 @@ Unit, no network, written first:
   allowed and a disallowed origin; `X-Request-Id` present; body size
   limit.
 - `test_api_sse.py`: parse the stream from the test client and assert the
-  event sequence for a text turn, a tool turn, and an error turn; heartbeat
-  presence is not asserted (timing).
+  event sequence for a text turn, a tool turn, and an error turn; that no
+  frame carries a tool name, a `tools` list, or usage; and that the two
+  notification tools produce identical `tool` frames. Heartbeat presence
+  is not asserted (timing).
 - `test_api_live.py` (integration, skipped without the key): start the app
   with the real client, stream one real turn, assert a `done` event with
   non-empty reply and at least one `delta`.
