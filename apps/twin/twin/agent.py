@@ -173,29 +173,33 @@ class TwinAgent:
         finish: str | None = None
         usage: Usage | None = None
         saw_choice = False
-        for chunk in stream:
-            chunk_usage = getattr(chunk, "usage", None)
-            if chunk_usage is not None:
-                usage = _usage_from(chunk_usage)
-            choices = getattr(chunk, "choices", None) or []
-            if not choices:
-                continue
-            saw_choice = True
-            choice = choices[0]
-            delta = getattr(choice, "delta", None)
-            if delta is not None:
-                content = getattr(delta, "content", None)
-                if content:
-                    if not composing:
-                        composing = True
-                        yield Step("composing", round_number)
-                    text.append(content)
-                    buffer.append(content)
-                    yield Delta(content)
-                for fragment in getattr(delta, "tool_calls", None) or []:
-                    _absorb(parts, fragment)
-            if getattr(choice, "finish_reason", None):
-                finish = choice.finish_reason
+        try:
+            for chunk in stream:
+                chunk_usage = getattr(chunk, "usage", None)
+                if chunk_usage is not None:
+                    usage = _usage_from(chunk_usage)
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                saw_choice = True
+                choice = choices[0]
+                delta = getattr(choice, "delta", None)
+                if delta is not None:
+                    content = getattr(delta, "content", None)
+                    if content:
+                        if not composing:
+                            composing = True
+                            yield Step("composing", round_number)
+                        text.append(content)
+                        buffer.append(content)
+                        yield Delta(content)
+                    for fragment in getattr(delta, "tool_calls", None) or []:
+                        _absorb(parts, fragment)
+                if getattr(choice, "finish_reason", None):
+                    finish = choice.finish_reason
+        finally:
+            # Release the HTTP connection whether the round finished, failed, or was abandoned by the consumer.
+            _close(stream)
         if finish == "length":
             log.warning("The reply was cut off at the model's output limit.")
         calls = tuple(_call_from(part) for _, part in sorted(parts.items()))
@@ -214,6 +218,13 @@ class TwinAgent:
             return None
         slug = call.slug()
         return self._catalog.get(slug) if slug else None
+
+
+def _close(stream: Any) -> None:
+    """Close the model stream when it can be closed; the SDK's Stream can, the test fakes' plain lists cannot."""
+    close = getattr(stream, "close", None)
+    if callable(close):
+        close()
 
 
 def _absorb(parts: dict[int, dict[str, str]], fragment: Any) -> None:

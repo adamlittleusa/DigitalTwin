@@ -7,6 +7,7 @@ import pytest
 from openai.types.chat import ChatCompletionChunk
 
 from tests.fakes import (
+    ClosableStream,
     ExplodingStream,
     FakeBudget,
     FakeNotifier,
@@ -256,6 +257,24 @@ def test_failure_mid_stream_keeps_partial_text() -> None:
     events = events_of(ScriptedClient([ExplodingStream()]))
     assert kinds(events) == ["step", "step", "delta", "error", "done"]
     assert events[-1].reply == "Part"
+
+
+def test_stream_is_closed_after_a_normal_round() -> None:
+    stream = ClosableStream(text_stream("Hi"))
+    events = events_of(ScriptedClient([stream]))
+    assert events[-1].reply == "Hi"
+    assert stream.closed
+
+
+def test_stream_is_closed_when_the_consumer_stops_early() -> None:
+    stream = ClosableStream(text_stream("Hi"))
+    agent = TwinAgent(ScriptedClient([stream]), SETTINGS, PROMPT, RecordingTools())
+    events = agent.run([], "hi")
+    event = next(events)
+    while not isinstance(event, Delta):
+        event = next(events)
+    events.close()
+    assert stream.closed
 
 
 def test_reply_returns_done_text_and_never_raises() -> None:

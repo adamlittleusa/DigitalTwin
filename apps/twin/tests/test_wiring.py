@@ -5,7 +5,7 @@ import pytest
 from tests.fakes import IDENTITY_META, FakeClock, project_meta, write_md
 from twin.config import ConfigError
 from twin.limits import DailyBudget, RateLimitedNotifier, RateLimiter
-from twin.tools import LoggingNotifier, RecordingTools, TwinTools
+from twin.tools import LoggingNotifier, PushoverNotifier, RecordingTools, TwinTools
 from twin.wiring import Runtime, build_agent, load_runtime
 
 
@@ -53,6 +53,13 @@ def test_notifier_is_logging_when_pushover_is_unset(knowledge_dir: Path) -> None
     runtime = load_runtime(env_for(knowledge_dir), client=object(), clock=FakeClock())
     assert isinstance(runtime.notifier, RateLimitedNotifier)
     assert isinstance(runtime.notifier.inner, LoggingNotifier)
+
+
+def test_notifier_is_pushover_when_configured(knowledge_dir: Path) -> None:
+    env = env_for(knowledge_dir, PUSHOVER_USER="u-abc", PUSHOVER_TOKEN="t-abc")
+    runtime = load_runtime(env, client=object(), clock=FakeClock())
+    assert isinstance(runtime.notifier, RateLimitedNotifier)
+    assert isinstance(runtime.notifier.inner, PushoverNotifier)
 
 
 def test_build_agent_uses_runtime_pieces(knowledge_dir: Path) -> None:

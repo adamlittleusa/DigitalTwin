@@ -21,9 +21,12 @@ class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
 
-    @field_validator("content")
+    @field_validator("content", mode="before")
     @classmethod
-    def _strip(cls, value: str) -> str:
+    def _strip(cls, value: Any) -> Any:
+        """Strip before the length check so surrounding whitespace never counts toward the limit."""
+        if not isinstance(value, str):
+            return value  # leave pydantic's own type error to fire
         stripped = value.strip()
         if not stripped:
             raise ValueError("content must not be blank")

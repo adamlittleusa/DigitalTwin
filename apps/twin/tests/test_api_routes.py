@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from twin.api.app import create_app
-from twin.api.schemas import MAX_BODY_BYTES
+from twin.api.schemas import MAX_BODY_BYTES, MAX_MESSAGE_CHARS
 from twin.wiring import Runtime
 
 JSON = {"Content-Type": "application/json"}
@@ -74,6 +74,13 @@ def test_invalid_requests_are_400_with_a_code(make_runtime: Callable[..., Runtim
     body = response.json()
     assert body["code"] == "invalid_request"
     assert "detail" in body
+
+
+def test_surrounding_whitespace_does_not_count_toward_the_limit(make_runtime: Callable[..., Runtime]) -> None:
+    padded = "  " + "x" * MAX_MESSAGE_CHARS + "  "
+    with client_for(make_runtime()).stream("POST", "/v1/chat", json={"messages": [user(padded)]}) as response:
+        assert response.status_code == 200
+        response.read()
 
 
 def test_malformed_json_is_400(make_runtime: Callable[..., Runtime]) -> None:

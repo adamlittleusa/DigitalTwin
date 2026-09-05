@@ -108,6 +108,20 @@ class ExplodingStream:
         raise RuntimeError("connection reset")
 
 
+class ClosableStream:
+    """A stream with a close method, like the SDK's Stream; records whether the agent released it."""
+
+    def __init__(self, chunks: list[SimpleNamespace]) -> None:
+        self._chunks = list(chunks)
+        self.closed = False
+
+    def __iter__(self) -> Iterator[SimpleNamespace]:
+        yield from self._chunks
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class ScriptedClient:
     """A stand-in for the OpenAI client. Returns scripted streams in order; when one is left, repeats it."""
 
