@@ -278,3 +278,24 @@ def test_recording_tools_accept_show_project() -> None:
     tools = RecordingTools()
     assert tools.call("show_project", {"slug": "digital-twin"}) == "OK"
     assert tools.calls == [("show_project", {"slug": "digital-twin"})]
+
+
+def test_show_project_truncates_a_long_slug() -> None:
+    tools = TwinTools(FakeNotifier(), catalog=CATALOG)
+    result = tools.call("show_project", {"slug": "x" * 500})
+    assert result.startswith("Unknown project: ")
+    assert len(result) < 200
+    assert tl._TRUNCATION_MARK in result
+
+
+def test_show_project_collapses_control_characters() -> None:
+    tools = TwinTools(FakeNotifier(), catalog=CATALOG)
+    result = tools.call("show_project", {"slug": "digital\n\ttwin"})
+    assert "\n" not in result
+    assert "\t" not in result
+
+
+def test_show_project_rejects_non_string_slug() -> None:
+    tools = TwinTools(FakeNotifier(), catalog=CATALOG)
+    result = tools.call("show_project", {"slug": ["a"]})
+    assert result.startswith("Unknown project")

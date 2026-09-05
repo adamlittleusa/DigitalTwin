@@ -34,7 +34,7 @@ def _clean(value: object) -> str:
     return _CONTROL_CHARS.sub(" ", str(value)).strip()
 
 
-FIELD_LIMITS: Final[dict[str, int]] = {"name": 120, "email": 254, "notes": 500, "question": 600}
+FIELD_LIMITS: Final[dict[str, int]] = {"name": 120, "email": 254, "notes": 500, "question": 600, "slug": 80}
 
 
 def _field(value: object, limit: int) -> str:
@@ -195,11 +195,14 @@ class TwinTools:
         return self._notify(f"Sensitive question deflected\nquestion: {_field(question, FIELD_LIMITS['question'])}")
 
     def show_project(self, slug: str) -> str:
+        if not isinstance(slug, str):
+            slug = ""
+        cleaned_slug = _field(slug, FIELD_LIMITS["slug"])
         if self._catalog is None:
             return "No projects available"
-        card = self._catalog.get(slug)
+        card = self._catalog.get(cleaned_slug)
         if card is None:
-            return f"Unknown project: {slug}. Known: {', '.join(self._catalog.slugs)}"
+            return f"Unknown project: {cleaned_slug}. Known: {', '.join(self._catalog.slugs)}"
         return f"Shown: {card.title}"
 
     def _notify(self, text: str) -> str:
