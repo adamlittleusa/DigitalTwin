@@ -104,7 +104,8 @@ apps/twin/
       api.py                twin-api (uvicorn entry point)
     api/
       __init__.py
-      app.py                create_app(runtime) and the module-level app
+      app.py                create_app(runtime); import-clean, no environment
+      asgi.py               app = create_app(load_runtime()); the only eager module
       routes.py             the four routes
       schemas.py            ChatRequest, ChatMessage, error bodies
       sse.py                event to SSE frame
@@ -127,9 +128,9 @@ apps/twin/
 
 | Event | Fields | Meaning |
 |---|---|---|
-| `Step` | `phase: "thinking" \| "composing"`, `round: int` | `thinking` before each model call; `composing` when the first text delta of the final answer arrives. |
+| `Step` | `phase: "thinking" \| "composing"`, `round: int` | `thinking` before each model call; `composing` once per turn when its first text delta arrives, in whichever round that is, carrying that round's number. |
 | `ToolCall` | `name`, `label` | The model asked for a tool. `label` is the visitor-facing text. |
-| `ToolResult` | `name`, `ok: bool` | The tool ran; `ok` is false when the handler reported an error or "notification failed". |
+| `ToolResult` | `name`, `ok: bool` | The tool ran. Results are paired to calls by list order; the agent decodes the tool message's JSON content and sets `ok` false when it is "notification failed" or starts with "Tool error" or "Unknown". |
 | `Delta` | `text` | A piece of the answer. |
 | `Project` | `slug`, `title`, `summary`, `url` | `show_project` produced a card. |
 | `Done` | `reply`, `tools: tuple[str, ...]`, `rounds: int`, `usage: Usage \| None` | The turn is complete. `reply` is the full text, never empty. `Usage` is a frozen `(prompt_tokens, completion_tokens, cached_tokens)` summed over the turn's calls, or `None` when no usage chunk arrived. |
@@ -162,9 +163,11 @@ knows, at most once per slug per turn. The labels for tools:
    - Consume chunks. Text deltas: on the first of the turn yield
      `Step(composing)`; yield `Delta` per chunk and append to the turn's
      buffer. Tool-call fragments: accumulate `id`, `name`, and `arguments`
-     per `index`. Stop on the chunk whose choice has a `finish_reason`,
-     then read the usage chunk if present and add it to the turn's usage
-     total.
+     per `index`. A chunk with an empty `choices` list carries no text or
+     tool data and is inspected only for `usage`. Stop after the chunk
+     whose choice has a `finish_reason` and, if a usage chunk follows, add
+     its counts to the turn's total. A stream that ends with no choices at
+     all is the empty-reply case handled in step 4.
    - If tool calls were accumulated: merge the fragments into call objects
      with the attribute shape `dispatch` reads (`id`, `function.name`,
      `function.arguments`); yield `ToolCall` for each; run them through
@@ -273,7 +276,11 @@ and prompt cache key and the caller's safety identifier.
 distinct from the `httpx2` package the OpenAI SDK uses), and declares
 console scripts `twin-chat` (`twin.cli.chat:main`), `twin-smoke`
 (`twin.cli.smoke:main`), and `twin-api` (`twin.cli.api:main`, which runs
-uvicorn on `twin.api.app:app` with the port from settings). `pythonpath =
+uvicorn on `twin.api.asgi:app` with the port from settings). `twin.api.app`
+stays import-clean: it defines `create_app(runtime)` and nothing that reads
+the environment, so unit tests import it without a key, a knowledge tree,
+or a client; `twin.api.asgi` is the one module that calls `load_runtime()`
+at import, and only uvicorn imports it. `pythonpath =
 ["."]` and the `sys.path` inserts go away. The prompt version key is
 `f"twin-prompt-{sha256(system_prompt)[:12]}"` computed in `load_runtime`.
 Every environment variable, including the CORS origins, is read only
@@ -286,7 +293,7 @@ Routes, all under `/v1`:
 
 | Route | Purpose |
 |---|---|
-| `GET /v1/health` | `{"status": "ok", "knowledge_files": n, "model": "...", "version": "..."}`. |
+| `GET /v1/health` | `{"status": "ok", "knowledge_files": n, "model": "...", "version": "..."}`, where `version` is the installed package version from `importlib.metadata`. |
 | `GET /v1/examples` | `{"questions": [...]}` from `twin.examples`. |
 | `GET /v1/projects` | `{"projects": [ProjectCard...]}`. |
 | `POST /v1/chat` | The streamed turn. |
@@ -327,7 +334,7 @@ passed unchanged to the agent.
 |---|---|
 | Valid | `200 text/event-stream` |
 | Malformed JSON or failed validation | `400 {"code": "invalid_request", "message": "...", "detail": [...]}` |
-| More than 8 user messages | `413 {"code": "conversation_too_long", "message": "..."}` |
+| More than `TWIN_MAX_USER_MESSAGES` user messages (default 8) | `413 {"code": "conversation_too_long", "message": "..."}` |
 | Body over 32 KB | `413 {"code": "body_too_large", "message": "..."}` |
 | Visitor over the hourly limit | `429 {"code": "rate_limited", "message": "...", "retry_after": n}` with a `Retry-After` header |
 | Daily ceiling reached | `503 {"code": "resting", "message": "The twin has used its budget for today and will be back tomorrow."}` |
@@ -457,8 +464,9 @@ Unit, no network, written first:
 - `test_events.py`: dataclasses frozen; `kind` literals.
 - `test_agent_stream.py`: a fake streaming client yielding scripted chunks.
   Cases: text-only turn (`thinking`, `composing`, deltas, `done`); a tool
-  round then text (`ToolCall`, `ToolResult`, then text; discarded interim
-  text); `show_project` emitting `Project`; the round cap and final
+  round then text (`ToolCall`, `ToolResult`, then text, with any text
+  streamed in the tool round kept and present in `Done.reply`);
+  `show_project` emitting `Project`; the round cap and final
   `tool_choice="none"`; empty content and empty choices giving
   `FALLBACK_REPLY`; an exception before the first chunk and one
   mid-stream, both yielding `Error` then `Done` and never raising;
@@ -470,8 +478,10 @@ Unit, no network, written first:
 - `test_projects.py`: catalog from a temp knowledge tree; summary
   extraction with and without the heading; the 280-character cut; unknown
   slug; url shape.
-- `test_tools.py` (extended): `show_project` known and unknown; the schema
-  enum matches the catalog; the schema-signature sync test still passes.
+- `test_tools.py` (extended): `show_project` known, unknown, and without a
+  catalog; the static schema exposes only `slug`; the existing
+  three-tool name assertion is updated to four; the schema-signature sync
+  test still passes.
 - `test_limits.py`: token bucket allow/deny/refill with a fake clock;
   idle-bucket eviction; daily budget rollover at UTC midnight; notifier
   cap forwarding ten then logging.
@@ -490,8 +500,10 @@ Unit, no network, written first:
   with the real client, stream one real turn, assert a `done` event with
   non-empty reply and at least one `delta`.
 
-The existing evals and unit tests keep passing. Coverage gate unchanged at
-80 percent with branch coverage; the package should stay near 100.
+The existing evals keep passing unchanged. The existing unit tests keep
+passing apart from the deliberate updates named above (the tool-name list
+and the scripts' replacement by console commands). Coverage gate unchanged
+at 80 percent with branch coverage; the package should stay near 100.
 
 ## 16. Success criteria
 
@@ -505,8 +517,9 @@ The existing evals and unit tests keep passing. Coverage gate unchanged at
    boundary.
 4. Sending 26 messages from one client inside an hour yields a 429 with
    `Retry-After` on the 26th (20 per hour plus a burst of 5).
-5. With `TWIN_DAILY_CALL_LIMIT=2`, the third model call of the day yields
-   the `resting` 503 on the next request.
+5. With `TWIN_DAILY_CALL_LIMIT=2`, once two model calls have been
+   recorded the next request is refused with the `resting` 503 before any
+   model call is made.
 6. `docker build` succeeds and the container answers `/v1/health` and one
    chat turn locally.
 7. `twin-chat` and `twin-smoke` behave exactly as the old scripts did.
