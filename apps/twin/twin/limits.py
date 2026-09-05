@@ -20,6 +20,8 @@ _EPSILON = 1e-9  # absorbs float error in refill arithmetic so 180 s at 20/hour 
 
 
 class Clock(Protocol):
+    """Seconds since the epoch, injectable so tests never sleep."""
+
     def now(self) -> float: ...
 
 
@@ -30,6 +32,9 @@ class SystemClock:
 
 @dataclass(frozen=True)
 class Decision:
+    """The limiter's answer. retry_after is whole seconds: 0 when allowed, at least 1 when
+    denied, 3600 when nothing refills."""
+
     allowed: bool
     retry_after: int
 
@@ -49,13 +54,19 @@ class RateLimiter:
         self._capacity = float(rate_per_hour + burst)
         self._refill_per_second = rate_per_hour / SECONDS_PER_HOUR
         self._clock = clock
-        self._idle_seconds = idle_seconds
+        # A dropped bucket comes back full, so the idle window must be at least as long as a full
+        # refill takes -- otherwise a visitor who waits it out earns more tokens than the rate allows.
+        self._idle_seconds = (
+            max(idle_seconds, self._capacity / self._refill_per_second)
+            if self._refill_per_second > 0
+            else idle_seconds
+        )
         self._buckets: dict[str, _Bucket] = {}
         self._lock = threading.Lock()
 
     def allow(self, key: str) -> Decision:
-        now = self._clock.now()
         with self._lock:
+            now = self._clock.now()
             self._evict(now)
             current = self._buckets.get(key, _Bucket(tokens=self._capacity, updated=now))
             tokens = min(self._capacity, current.tokens + (now - current.updated) * self._refill_per_second)
@@ -123,8 +134,8 @@ class RateLimitedNotifier:
         return self._inner
 
     def push(self, text: str) -> None:
-        now = self._clock.now()
         with self._lock:
+            now = self._clock.now()
             while self._sent and now - self._sent[0] >= SECONDS_PER_HOUR:
                 self._sent.popleft()
             if len(self._sent) >= self._per_hour:

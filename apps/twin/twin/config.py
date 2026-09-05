@@ -95,12 +95,21 @@ def _csv(source: Mapping[str, str], name: str, default: tuple[str, ...]) -> tupl
 
 
 def _origin(name: str, value: str) -> str:
-    """The origin with any trailing slash removed, once it is confirmed to be a bare origin."""
+    """The origin, lower-cased and without a trailing slash, once it is confirmed to be a bare
+    origin with no embedded credentials."""
     parts = urlsplit(value)
     path = parts.path[:-1] if parts.path.endswith("/") else parts.path
-    if parts.scheme not in {"http", "https"} or not parts.netloc or path or parts.query or parts.fragment:
+    if (
+        parts.scheme not in {"http", "https"}
+        or not parts.netloc
+        or path
+        or parts.query
+        or parts.fragment
+        or parts.username is not None
+        or parts.password is not None
+    ):
         raise ConfigError(f"{name} must be an origin like https://example.com, got {value!r}")
-    return value[:-1] if value.endswith("/") else value
+    return f"{parts.scheme.lower()}://{parts.netloc.lower()}"
 
 
 @dataclass(frozen=True)

@@ -9,7 +9,7 @@ FULL_ENV = {
     "OPENAI_API_KEY": "sk-test",
     "TWIN_MODEL": "gpt-test",
     "KNOWLEDGE_DIR": "C:/somewhere/knowledge",
-    "PUSHOVER_USER": "user",
+    "PUSHOVER_USER": "u-abc123",
     "PUSHOVER_TOKEN": "token",
 }
 
@@ -19,7 +19,7 @@ def test_all_variables_present() -> None:
     assert settings.openai_api_key == "sk-test"
     assert settings.model == "gpt-test"
     assert settings.knowledge_dir == Path("C:/somewhere/knowledge")
-    assert settings.pushover_user == "user"
+    assert settings.pushover_user == "u-abc123"
     assert settings.pushover_token == "token"
     assert settings.pushover_enabled is True
 
@@ -72,6 +72,7 @@ def test_repr_hides_secrets() -> None:
     text = repr(settings)
     assert "sk-test" not in text
     assert "token" not in text
+    assert "u-abc123" not in text
     assert "gpt-test" in text
 
 
@@ -155,6 +156,16 @@ def test_api_settings_are_parsed() -> None:
     assert "pepper" not in repr(settings)
 
 
+def test_origins_are_normalised() -> None:
+    settings = Settings.from_env(
+        {
+            "OPENAI_API_KEY": "sk-test",
+            "TWIN_ALLOWED_ORIGINS": "HTTPS://Adambuilds.AI/, https://www.adambuilds.ai:8443",
+        }
+    )
+    assert settings.allowed_origins == ("https://adambuilds.ai", "https://www.adambuilds.ai:8443")
+
+
 @pytest.mark.parametrize(
     ("name", "value"),
     [
@@ -172,6 +183,10 @@ def test_api_settings_are_parsed() -> None:
         ("TWIN_ALLOWED_ORIGINS", "*"),
         ("TWIN_ALLOWED_ORIGINS", "https://adambuilds.ai/chat"),
         ("TWIN_SITE_URL", "adambuilds.ai"),
+        ("TWIN_ALLOWED_ORIGINS", "https://u:p@adambuilds.ai"),
+        ("TWIN_ALLOWED_ORIGINS", "https://adambuilds.ai?x=1"),
+        ("TWIN_ALLOWED_ORIGINS", "ftp://adambuilds.ai"),
+        ("TWIN_SITE_URL", "https://adambuilds.ai/site/"),
     ],
 )
 def test_bad_api_settings_name_the_variable(name: str, value: str) -> None:
@@ -192,18 +207,30 @@ def test_trust_proxy_false_spellings_are_recognized(value: str) -> None:
     assert settings.trust_proxy is False
 
 
+# Assumes no ancestor of tmp_path holds both apps/ and knowledge/.
 def test_repo_root_walkup_falls_back_to_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(config, "__file__", str(Path(tmp_path.anchor) / "config.py"))
     assert config._repo_root() == Path.cwd()
 
 
+# Assumes no ancestor of tmp_path holds both apps/ and knowledge/.
 def test_repo_root_ignores_site_packages_layout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     site_packages_twin = tmp_path / "app" / ".venv" / "lib" / "python3.13" / "site-packages" / "twin"
     site_packages_twin.mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(config, "__file__", str(site_packages_twin / "config.py"))
     assert config._repo_root() == Path.cwd()
+
+
+def test_repo_root_finds_the_tree_above_a_venv(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    site_packages_twin = (
+        tmp_path / "app" / "apps" / "twin" / ".venv" / "lib" / "python3.13" / "site-packages" / "twin"
+    )
+    site_packages_twin.mkdir(parents=True)
+    (tmp_path / "app" / "knowledge").mkdir(parents=True)
+    monkeypatch.setattr(config, "__file__", str(site_packages_twin / "config.py"))
+    assert config._repo_root() == (tmp_path / "app").resolve()
 
 
 def test_repo_root_finds_the_source_tree(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
