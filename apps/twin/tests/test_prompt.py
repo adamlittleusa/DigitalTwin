@@ -121,3 +121,21 @@ def test_role_instructions_bridge_third_to_first_person() -> None:
 def test_rules_mention_show_project_once_per_reply() -> None:
     assert "show_project" in pm.RULES
     assert "at most once per reply" in pm.RULES
+
+
+def test_project_sections_carry_a_slug_attribute() -> None:
+    files = (
+        KnowledgeFile(
+            path=Path("projects/digital-twin.md"),
+            title="Digital twin",
+            kind="project",
+            body="Adam built a digital twin.",
+            period="2026-09 to present",
+        ),
+        kf("identity", "Identity", "Adam is a security leader."),
+    )
+    text = build_system_prompt(Knowledge(files=files))
+    assert '<section kind="project" title="Digital twin" slug="digital-twin">' in text
+    identity_start = text.index('<section kind="identity"')
+    identity_end = text.index(">", identity_start)
+    assert "slug=" not in text[identity_start:identity_end]
