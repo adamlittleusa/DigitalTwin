@@ -96,12 +96,18 @@ def _csv(source: Mapping[str, str], name: str, default: tuple[str, ...]) -> tupl
 
 def _origin(name: str, value: str) -> str:
     """The origin, lower-cased and without a trailing slash, once it is confirmed to be a bare
-    origin with no embedded credentials."""
+    origin with no embedded credentials. A port that matches the scheme's default (80 for http,
+    443 for https) is dropped, since browsers omit it in the Origin header."""
     parts = urlsplit(value)
     path = parts.path[:-1] if parts.path.endswith("/") else parts.path
+    try:
+        port = parts.port
+    except ValueError:
+        raise ConfigError(f"{name} must be an origin like https://example.com, got {value!r}") from None
     if (
         parts.scheme not in {"http", "https"}
         or not parts.netloc
+        or parts.netloc.endswith(":")
         or path
         or parts.query
         or parts.fragment
@@ -109,7 +115,9 @@ def _origin(name: str, value: str) -> str:
         or parts.password is not None
     ):
         raise ConfigError(f"{name} must be an origin like https://example.com, got {value!r}")
-    return f"{parts.scheme.lower()}://{parts.netloc.lower()}"
+    default_port = 80 if parts.scheme == "http" else 443
+    netloc = parts.netloc.rsplit(":", 1)[0] if port == default_port else parts.netloc
+    return f"{parts.scheme}://{netloc.lower()}"
 
 
 @dataclass(frozen=True)

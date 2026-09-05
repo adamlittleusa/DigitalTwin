@@ -1,5 +1,6 @@
 import logging
 import queue
+import sys
 import threading
 
 import pytest
@@ -74,10 +75,22 @@ def test_refill_is_capped_at_capacity() -> None:
     for _ in range(25):
         assert limiter.allow("a").allowed
     assert not limiter.allow("a").allowed
-    clock.advance(36000)  # ten hours
+    clock.advance(5400)  # 90 min: past the 75-min full refill (20/hour, burst 5), inside the 2h idle window
     for _ in range(25):
         assert limiter.allow("a").allowed
     assert not limiter.allow("a").allowed
+
+
+def test_idle_window_is_honoured_when_nothing_refills() -> None:
+    clock = FakeClock()
+    limiter = RateLimiter(rate_per_hour=0, burst=1, clock=clock, idle_seconds=100)
+    assert limiter.allow("a").allowed
+    decision = limiter.allow("a")
+    assert decision.allowed is False
+    assert decision.retry_after == 3600
+    clock.advance(101)
+    limiter.allow("b")
+    assert "a" not in limiter.keys()
 
 
 def test_allow_is_safe_across_threads() -> None:
@@ -86,19 +99,26 @@ def test_allow_is_safe_across_threads() -> None:
     results: queue.Queue[bool] = queue.Queue()
 
     def worker() -> None:
-        for _ in range(10):
+        for _ in range(100):
             results.put(limiter.allow("a").allowed)
 
-    threads = [threading.Thread(target=worker) for _ in range(8)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+    # A short switch interval forces the GIL to hop between threads mid-call, so this only stays
+    # green if allow() is actually holding its lock across the read-modify-write.
+    original_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        threads = [threading.Thread(target=worker) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    finally:
+        sys.setswitchinterval(original_interval)
 
     decisions = []
     while not results.empty():
         decisions.append(results.get_nowait())
-    assert len(decisions) == 80
+    assert len(decisions) == 800
     assert sum(decisions) == 25
 
 

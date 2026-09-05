@@ -166,6 +166,16 @@ def test_origins_are_normalised() -> None:
     assert settings.allowed_origins == ("https://adambuilds.ai", "https://www.adambuilds.ai:8443")
 
 
+def test_origins_drop_default_ports_but_keep_explicit_ones() -> None:
+    settings = Settings.from_env(
+        {
+            "OPENAI_API_KEY": "sk-test",
+            "TWIN_ALLOWED_ORIGINS": "https://adambuilds.ai:443, http://localhost:80, http://localhost:3000",
+        }
+    )
+    assert settings.allowed_origins == ("https://adambuilds.ai", "http://localhost", "http://localhost:3000")
+
+
 @pytest.mark.parametrize(
     ("name", "value"),
     [
@@ -187,6 +197,8 @@ def test_origins_are_normalised() -> None:
         ("TWIN_ALLOWED_ORIGINS", "https://adambuilds.ai?x=1"),
         ("TWIN_ALLOWED_ORIGINS", "ftp://adambuilds.ai"),
         ("TWIN_SITE_URL", "https://adambuilds.ai/site/"),
+        ("TWIN_ALLOWED_ORIGINS", "https://adambuilds.ai:abc"),
+        ("TWIN_ALLOWED_ORIGINS", "https://adambuilds.ai:"),
     ],
 )
 def test_bad_api_settings_name_the_variable(name: str, value: str) -> None:

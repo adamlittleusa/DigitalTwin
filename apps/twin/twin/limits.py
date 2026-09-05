@@ -54,8 +54,11 @@ class RateLimiter:
         self._capacity = float(rate_per_hour + burst)
         self._refill_per_second = rate_per_hour / SECONDS_PER_HOUR
         self._clock = clock
-        # A dropped bucket comes back full, so the idle window must be at least as long as a full
-        # refill takes -- otherwise a visitor who waits it out earns more tokens than the rate allows.
+        # A dropped bucket comes back full, so whenever something refills, the idle window must be
+        # at least as long as a full refill takes -- otherwise a visitor who waits it out earns
+        # more tokens than the rate allows. The floor only removes that over-grant; with no refill
+        # (rate_per_hour=0) there's nothing to floor against, so the configured window is kept as
+        # the accepted trade-off against unbounded memory.
         self._idle_seconds = (
             max(idle_seconds, self._capacity / self._refill_per_second)
             if self._refill_per_second > 0
