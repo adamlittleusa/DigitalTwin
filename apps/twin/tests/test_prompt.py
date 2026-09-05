@@ -123,6 +123,14 @@ def test_rules_mention_show_project_once_per_reply() -> None:
     assert "at most once per reply" in pm.RULES
 
 
+def test_rules_forbid_cards_for_employers() -> None:
+    assert "employers and roles have no cards" in pm.RULES
+
+
+def test_rules_require_a_real_email_before_recording() -> None:
+    assert "only after they have actually given you an email address" in pm.RULES
+
+
 def test_project_sections_carry_a_slug_attribute() -> None:
     files = (
         KnowledgeFile(

@@ -95,9 +95,10 @@ RECORD_SENSITIVE_QUESTION: dict[str, Any] = {
 SHOW_PROJECT: dict[str, Any] = {
     "name": "show_project",
     "description": (
-        "Show the visitor a card for one of the projects on the site. Use it when a project in the "
-        "knowledge sections is what the visitor is asking about or the natural next thing to show them. "
-        "Use it at most once per reply."
+        "Show the visitor a card for one of the projects on the site. Use it only when the visitor asks about "
+        "that project or about what Adam is building now; never for questions about jobs, employers, skills, or "
+        "background. The slug must be one shown on a project section tag in the knowledge; employers and roles "
+        "have no cards. Use it at most once per reply."
     ),
     "parameters": {
         "type": "object",

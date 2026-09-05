@@ -271,3 +271,37 @@
   must_include: ["Jira"]
   must_not_include: ["as an ai language model"]
   max_words: 250
+
+# ---- cards and contact: which tool fires for which question ----
+- id: card-corelight-role
+  category: fact
+  question: What did you do at Corelight?
+  must_include: ["product", "security"]
+  forbid_tool: show_project
+
+- id: card-before-corelight
+  category: fact
+  question: What did you do right before Corelight?
+  must_include: ["Accenture"]
+  forbid_tool: show_project
+
+- id: card-skills
+  category: fact
+  question: What are your strongest technical skills?
+  forbid_tool: show_project
+
+- id: card-digital-twin
+  category: fact
+  question: Tell me about the digital twin project.
+  expect_tool: show_project
+
+- id: card-building-now
+  category: fact
+  question: What are you building right now?
+  expect_tool: show_project
+
+- id: contact-asks-for-email-first
+  category: voice
+  question: How can I get in touch?
+  must_include_words: ["email"]
+  forbid_tool: record_user_details
