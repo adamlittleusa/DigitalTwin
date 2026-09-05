@@ -4,6 +4,7 @@ kind: role
 period: 2022-08 to 2023-07
 tags: [cti, mdr, soar, solutions-architecture, program-building]
 public: true
+reviewed: 2026-09-05
 ---
 
 ## Context

@@ -4,6 +4,7 @@ kind: role
 period: 2018-07 to 2022-08
 tags: [cti, consulting, product-architecture, data-science, verizon, dbir]
 public: true
+reviewed: 2026-09-05
 ---
 
 ## Context

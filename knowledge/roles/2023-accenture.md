@@ -4,6 +4,7 @@ kind: role
 period: 2023-07 to 2026-03
 tags: [consulting, cti, secure-ai, advisory, go-to-market]
 public: true
+reviewed: 2026-09-05
 ---
 
 ## Context

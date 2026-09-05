@@ -3,6 +3,7 @@ title: Who Adam is
 kind: identity
 tags: [ai-security, cti, secops, product]
 public: true
+reviewed: 2026-09-05
 ---
 
 Adam Little is a security leader who works where AI security architecture, security operations, and cyber threat intelligence meet. He describes his focus as building scalable security programs for emerging AI and enterprise technology.

@@ -4,6 +4,7 @@ kind: role
 period: 2001 to 2013
 tags: [military, intelligence, army, deployments]
 public: true
+reviewed: 2026-09-05
 ---
 
 ## Context
@@ -16,12 +17,4 @@ Adam enlisted in 2001 and left for service in 2002. He was on active duty until 
 
 Managed intelligence operations over the years throughout the Middle East, Africa, the Balkans, and Southeast Asia, with assignments that included Kosovo, Iraq, Morocco, and Gabon. Specialized in human intelligence collection, which Adam describes as essentially anything to do with talking to people and collecting intelligence. Did a lot of team building: putting together small special-purpose teams for operations and mixing and matching specialties across them.
 
-## Outcomes
 
-## Stories
-
-## Skills used
-
-Human intelligence collection, intelligence operations, building and leading small special-purpose teams.
-
-## Why I moved on

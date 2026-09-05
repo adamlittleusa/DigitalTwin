@@ -4,6 +4,7 @@ kind: role
 period: 2013-07 to 2017-03
 tags: [military, intelligence, training, operations-management, leadership]
 public: true
+reviewed: 2026-09-05
 ---
 
 ## Context
@@ -15,6 +16,11 @@ Massachusetts Army National Guard, on Active Guard Reserve (AGR) status.
 Served as the senior experienced intelligence collector and operations manager for the Massachusetts Army National Guard. Managed readiness, training plans, logistics, and organizational requirements for more than 70 military intelligence professionals. Coordinated training and resource needs and advised command leadership on readiness and operational requirements.
 
 ## Outcomes
+
+- Managed, deployed, and controlled the execution of an annual budget of more than 10 million dollars for the entire tenure.
+- Documented the training plan, logistics, reservations, and facilities needs for the intelligence unit.
+- Represented the unit at annual training exercises.
+- Achieved a 98 percent readiness metric during the tenure.
 
 ## Stories
 

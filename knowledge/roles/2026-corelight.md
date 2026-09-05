@@ -4,6 +4,7 @@ kind: role
 period: 2026-03 to 2026-08
 tags: [product-management, ai-security, mcp, ndr, siem, soar]
 public: true
+reviewed: 2026-09-05
 ---
 
 ## Context

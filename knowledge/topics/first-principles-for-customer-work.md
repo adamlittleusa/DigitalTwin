@@ -3,6 +3,7 @@ title: Two first principles for product and customer work
 kind: topic
 tags: [customer-success, product, opinion]
 public: true
+reviewed: 2026-09-05
 ---
 
 Adam's two first principles, learned at Recorded Future and carried into every similar role since.

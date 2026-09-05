@@ -51,20 +51,20 @@ pieces as the monologue and interviews produce them.
 
 | File | Seeded | Interviewed | Reviewed |
 |---|---|---|---|
-| `identity.md` | resume + LinkedIn (About, headline, location) + summary + spec, pass 1; monologue, pass 2 | | |
-| `voice.md` | monologue, pass 2 | | |
-| `boundaries.md` | defaults, pass 1 | | |
-| `career-arc.md` | monologue, pass 2 | | |
-| `roles/2026-corelight.md` | resume + LinkedIn end date, pass 1; monologue, pass 2 | 2026-09-05, first round; outcomes and stories still thin | |
-| `roles/2023-accenture.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, first round; numbers still thin | |
-| `roles/2022-pondurance-revelstoke.md` | one narrative from the 2026-09-05 interview, nothing beyond it by Adam's choice | 2026-09-05, final | |
-| `roles/2018-recorded-future.md` | resume + LinkedIn, pass 1; monologue, pass 2 | 2026-09-05, first round | |
-| `roles/2017-mit-lincoln-lab.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, closed by Adam's choice | |
-| `roles/2017-mission-essential.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, mission added, then closed | |
-| `roles/2013-mang-training-manager.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, closed by Adam's choice | |
-| `roles/2001-army-intel-ops.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, regions and service timeline added, then closed | |
-| `topics/cti-advisory.md` | monologue + LinkedIn, pass 2 | | |
-| `topics/ai-in-secops.md` | Corelight interview, 2026-09-05 | | |
-| `topics/first-principles-for-customer-work.md` | Recorded Future interview, 2026-09-05 | | |
-| `projects/digital-twin.md` | spec, pass 1 | | |
-| `faq.md` | resume + LinkedIn + summary + spec, pass 1; monologue, pass 2 | | |
+| `identity.md` | resume + LinkedIn (About, headline, location) + summary + spec, pass 1; monologue, pass 2 |  | 2026-09-05 |
+| `voice.md` | monologue, pass 2 |  | 2026-09-05 |
+| `boundaries.md` | defaults, pass 1 |  | 2026-09-05 |
+| `career-arc.md` | monologue, pass 2 |  | 2026-09-05 |
+| `roles/2026-corelight.md` | resume + LinkedIn end date, pass 1; monologue, pass 2 | 2026-09-05, first round; outcomes and stories still thin | 2026-09-05 |
+| `roles/2023-accenture.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, first round; numbers still thin | 2026-09-05 |
+| `roles/2022-pondurance-revelstoke.md` | one narrative from the 2026-09-05 interview, nothing beyond it by Adam's choice | 2026-09-05, final | 2026-09-05 |
+| `roles/2018-recorded-future.md` | resume + LinkedIn, pass 1; monologue, pass 2 | 2026-09-05, first round | 2026-09-05 |
+| `roles/2017-mit-lincoln-lab.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, closed by Adam's choice | 2026-09-05 |
+| `roles/2017-mission-essential.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, mission added, then closed | 2026-09-05 |
+| `roles/2013-mang-training-manager.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, closed by Adam's choice | 2026-09-05 |
+| `roles/2001-army-intel-ops.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, regions and service timeline added, then closed | 2026-09-05 |
+| `topics/cti-advisory.md` | monologue + LinkedIn, pass 2 |  | 2026-09-05 |
+| `topics/ai-in-secops.md` | Corelight interview, 2026-09-05 |  | 2026-09-05 |
+| `topics/first-principles-for-customer-work.md` | Recorded Future interview, 2026-09-05 |  | 2026-09-05 |
+| `projects/digital-twin.md` | spec, pass 1 |  |  |
+| `faq.md` | resume + LinkedIn + summary + spec, pass 1; monologue, pass 2 |  | 2026-09-05 |

@@ -3,6 +3,7 @@ title: The through-line
 kind: arc
 tags: [career, story]
 public: true
+reviewed: 2026-09-05
 ---
 
 Adam's own account of his career, from his recorded monologue, in the order he tells it.

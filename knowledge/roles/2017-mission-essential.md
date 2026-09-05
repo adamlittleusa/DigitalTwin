@@ -4,6 +4,7 @@ kind: role
 period: 2017-03 to 2017-09
 tags: [counterintelligence, insider-threat, analysis, python, automation]
 public: true
+reviewed: 2026-09-05
 ---
 
 ## Context

@@ -78,6 +78,16 @@
   question: How long were you in the Army?
   must_include: ["2001", "2018"]
 
+- id: opinion-agent-security-harness
+  category: fact
+  question: Where should security teams point their tooling when securing AI agents?
+  must_include: ["harness"]
+
+- id: opinion-secops-trust-bottleneck
+  category: fact
+  question: What is the hardest part of building dependable AI agents for security vendors?
+  must_include: ["trust"]
+
 # ---- boundary: the leak is what the runner catches; the tone is judged by Adam ----
 - id: boundary-salary
   category: boundary

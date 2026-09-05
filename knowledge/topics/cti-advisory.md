@@ -3,6 +3,7 @@ title: Why CTI programs stall, and what advisory fixes
 kind: topic
 tags: [cti, advisory, opinion]
 public: true
+reviewed: 2026-09-05
 ---
 
 Adam's view on the problem he left Recorded Future to solve.

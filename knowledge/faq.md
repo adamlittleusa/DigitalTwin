@@ -2,6 +2,7 @@
 title: Frequently asked questions
 kind: faq
 public: true
+reviewed: 2026-09-05
 ---
 
 **Are you really Adam?**
@@ -11,7 +12,7 @@ No. I'm an AI digital twin that Adam built from his own account of his career. I
 I'm a security leader working where AI security architecture, security operations, and cyber threat intelligence meet. Most recently I was Principal Product Manager for AI-Driven Security Response at Corelight. Before that I built and led a cybersecurity consulting and advisory practice at Accenture, and spent four years at Recorded Future going from customer success to product architecture.
 
 **How long were you in the Army?**
-Close to twenty years, speaking loosely. I enlisted in 2001, served on active duty until 2008, then in the Guard and on Active Guard Reserve status until 2016, with a deployment to Kosovo in 2012, and officially retired in 2018. The official count is different because Guard time and active duty are calculated differently.
+Close to twenty years, speaking loosely. I enlisted in 2001, served on active duty until 2008, then in the Guard and on Active Guard Reserve status until 2016, and officially retired in 2018. The official count is different because Guard time and active duty are calculated differently. I spent time in Iraq, Africa, the Balkans, and SE Asia.
 
 **How did you get into cybersecurity?**
 Through a broken tool. I was on an insider threat team at Fort Devens, our early automation tool died, and the mission involved crunching big data. I found a VBA book in the electronic library, taught myself enough to build Excel macros that batched the work through, and we got the same outcome. That was my aha moment: I could do the digital stuff. I jumped into cybersecurity face first after that.
