@@ -55,7 +55,7 @@ pieces as the monologue and interviews produce them.
 | `voice.md` | monologue, pass 2 | | |
 | `boundaries.md` | defaults, pass 1 | | |
 | `career-arc.md` | monologue, pass 2 | | |
-| `roles/2026-corelight.md` | resume + LinkedIn end date, pass 1; monologue, pass 2 | | |
+| `roles/2026-corelight.md` | resume + LinkedIn end date, pass 1; monologue, pass 2 | 2026-09-05, first round; outcomes and stories still thin | |
 | `roles/2023-accenture.md` | resume, pass 1; monologue, pass 2 | | |
 | `roles/2023-revelstoke.md` | resume, pass 1; monologue, pass 2 | | |
 | `roles/2022-pondurance.md` | resume + LinkedIn, pass 1; monologue, pass 2 | | |
@@ -65,5 +65,6 @@ pieces as the monologue and interviews produce them.
 | `roles/2013-mang-training-manager.md` | resume, pass 1; monologue, pass 2 | | |
 | `roles/2001-army-intel-ops.md` | resume, pass 1; monologue, pass 2 | | |
 | `topics/cti-advisory.md` | monologue + LinkedIn, pass 2 | | |
+| `topics/ai-in-secops.md` | Corelight interview, 2026-09-05 | | |
 | `projects/digital-twin.md` | spec, pass 1 | | |
 | `faq.md` | resume + LinkedIn + summary + spec, pass 1; monologue, pass 2 | | |
