@@ -85,9 +85,9 @@ per-visitor id for abuse detection on OpenAI's side) and `prompt_cache_key`
 Changes and additions under `apps/twin/`:
 
 ```
+.dockerignore               at the repo root, because the build context is the repo root
 apps/twin/
   Dockerfile
-  .dockerignore
   pyproject.toml            hatchling build; installable; console scripts
   twin/
     agent.py                run() generator + reply() wrapper
@@ -119,7 +119,9 @@ apps/twin/
 ```
 
 `scripts/chat.py` and `scripts/smoke.py` are deleted; `twin-chat` and
-`twin-smoke` replace them. Nothing else in the repo moves.
+`twin-smoke` replace them. `tests/test_agent.py` is deleted and replaced by
+`tests/test_agent_stream.py`. Outside `apps/twin/`, the only additions are
+the repo-root `.dockerignore` and new lines in `.env.example`.
 
 ## 6. Agent events
 
@@ -133,7 +135,7 @@ apps/twin/
 | `ToolResult` | `name`, `ok: bool` | The tool ran. Results are paired to calls by list order; the agent decodes the tool message's JSON content and sets `ok` false when it is "notification failed" or starts with "Tool error" or "Unknown". |
 | `Delta` | `text` | A piece of the answer. |
 | `Project` | `slug`, `title`, `summary`, `url` | `show_project` produced a card. |
-| `Done` | `reply`, `tools: tuple[str, ...]`, `rounds: int`, `usage: Usage \| None` | The turn is complete. `reply` is the full text, never empty. `Usage` is a frozen `(prompt_tokens, completion_tokens, cached_tokens)` summed over the turn's calls, or `None` when no usage chunk arrived. |
+| `Done` | `reply`, `tools: tuple[str, ...]`, `rounds: int`, `usage: Usage \| None` | The turn is complete. `reply` is the full text, never empty. `rounds` is the number of model calls the turn made, including any post-cap call. `Usage` is a frozen `(prompt_tokens, completion_tokens, cached_tokens)` summed over the turn's calls, or `None` when no usage chunk arrived. |
 | `Error` | `code`, `message` | Something failed mid-turn; always followed by `Done`. |
 
 Ordering guarantees: exactly one `Done`, always last. `Step(thinking)`
@@ -219,7 +221,8 @@ built per request (section 9), so no tool or agent state crosses requests.
 
 `tools.py` gains `SHOW_PROJECT`, a static schema added to `TOOL_SCHEMAS`
 (four tools) whose single `slug` property is a plain string described as
-"one of the project slugs named in the knowledge sections".
+"one of the project slugs named in the knowledge sections", listed in
+`required`, with `additionalProperties` false like the other three.
 `TwinTools(notifier, catalog=None)` gains a `show_project(slug)` handler:
 with a catalog it returns `"Shown: <title>"` for a known slug and
 `"Unknown project: <slug>. Known: <comma-separated slugs>"` otherwise;
@@ -322,8 +325,8 @@ Validation, in `schemas.py` with pydantic, all before any model call:
   messages; more than `TWIN_MAX_USER_MESSAGES` is the 413 in section 10.2,
   checked before any limit or model call, so the cap is reachable and
   configurable.
-- Request body at most 32 KB (middleware rejects larger with 413 before
-  parsing).
+- Request body at most 32 KB; a small middleware in `security.py` rejects
+  larger bodies with the 413 before parsing.
 
 The last message is the new question; everything before it is the history
 passed unchanged to the agent.
@@ -341,6 +344,10 @@ passed unchanged to the agent.
 | Startup problem surfaced at request time (should not happen) | `500 {"code": "internal", "message": "..."}` |
 
 Error bodies never contain stack traces, file paths, or model error text.
+FastAPI's default for a failed request model is a 422 with a bare
+`detail` list, so the app registers a `RequestValidationError` handler
+that returns the 400 shape above, and a plain-JSON handler for unexpected
+exceptions that returns the 500 shape and logs the traceback server-side.
 
 ### 10.3 The stream
 
@@ -430,7 +437,8 @@ New variables, all with defaults, read by `Settings.from_env`:
 
 "Required in production" means: when `TWIN_TRUST_PROXY` is true and
 `TWIN_LOG_SALT` is unset, startup fails with a one-line error, since a
-trusted proxy implies a real deployment.
+trusted proxy implies a real deployment. `.env.example` gains every new
+variable with its default, so a fresh checkout documents them.
 
 ## 13. Logging and health
 
@@ -446,8 +454,15 @@ does not call the model.
 ## 14. Docker image
 
 `python:3.13-slim` base; install `uv`; `uv sync --frozen --no-dev`; copy
-`twin/` and the repo's `knowledge/` directory (the image bundles the
-reviewed knowledge; `raw/` is excluded by `.dockerignore`); non-root user;
+`apps/twin/` and the repo's `knowledge/` directory (the image bundles the
+reviewed knowledge). The build context is the repo root, so the
+`.dockerignore` lives there and excludes `knowledge/raw/`, `private/`,
+`.env` and `.env.*` except the example, `.git`, every `.venv`, caches, and
+`node_modules`; the Dockerfile additionally copies only `knowledge/*.md`,
+`knowledge/roles`, `knowledge/topics`, and `knowledge/projects`, never
+`knowledge/raw`, so the private sources are kept out twice over. The local
+check lists the image's knowledge directory to prove `raw/` is absent.
+Non-root user;
 `EXPOSE 8080`; `CMD ["twin-api"]`. `KNOWLEDGE_DIR` is set explicitly in the
 image so `REPO_ROOT` walk-up is not relied on, and the walk-up itself is
 made safe: when the package sits shallower than expected (an installed
@@ -501,9 +516,17 @@ Unit, no network, written first:
   non-empty reply and at least one `delta`.
 
 The existing evals keep passing unchanged. The existing unit tests keep
-passing apart from the deliberate updates named above (the tool-name list
-and the scripts' replacement by console commands). Coverage gate unchanged
-at 80 percent with branch coverage; the package should stay near 100.
+passing apart from the deliberate updates: the tool-name list grows to
+four; the scripts' tests, if any, follow them into `twin/cli`; and
+`tests/test_agent.py` is deleted and replaced by `test_agent_stream.py`,
+which restates every scenario it covered against the streaming fake (its
+object-identity assertions on appended messages do not carry over, since
+the loop now appends plain dicts). The two warnings the old loop logged, a
+`length` finish reason and a stream with no choices, carry over into `run`
+and keep their tests. Coverage gate unchanged at 80 percent with branch
+coverage; `twin/cli/*` and `twin/api/asgi.py` are omitted from measurement
+because they only wire and run, so the measured package should stay near
+100.
 
 ## 16. Success criteria
 
@@ -522,7 +545,10 @@ at 80 percent with branch coverage; the package should stay near 100.
    model call is made.
 6. `docker build` succeeds and the container answers `/v1/health` and one
    chat turn locally.
-7. `twin-chat` and `twin-smoke` behave exactly as the old scripts did.
+7. `twin-chat` and `twin-smoke` behave as the old scripts did, with two
+   deliberate differences: a model failure is reported inside the turn as
+   an error event and a fallback reply rather than raised, and the REPL's
+   notifier is rate-limited like the API's.
 
 ## 17. Risks
 
