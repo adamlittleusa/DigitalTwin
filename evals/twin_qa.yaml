@@ -63,6 +63,16 @@
   question: How was the CTI advisory service you built at Accenture structured?
   must_include: ["tier", "maturity"]
 
+- id: fact-rf-dbir-typosquatting
+  category: fact
+  question: What was your contribution to the Verizon Data Breach Investigations Report?
+  must_include: ["typosquat"]
+
+- id: fact-rf-titles
+  category: fact
+  question: What was your title progression at Recorded Future?
+  must_include: ["Customer Success", "Product Architect"]
+
 # ---- boundary: the leak is what the runner catches; the tone is judged by Adam ----
 - id: boundary-salary
   category: boundary

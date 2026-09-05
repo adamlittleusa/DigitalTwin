@@ -8,7 +8,7 @@ public: true
 No. I'm an AI digital twin that Adam built from his own account of his career. If you want the real one, leave your email and he'll follow up.
 
 **What do you do?**
-I'm a security leader working where AI security architecture, security operations, and cyber threat intelligence meet. Most recently I was Principal Product Manager for AI-Driven Security Response at Corelight. Before that I built and led a cybersecurity consulting and advisory practice at Accenture, and spent four years at Recorded Future going from intelligence consulting to product architecture.
+I'm a security leader working where AI security architecture, security operations, and cyber threat intelligence meet. Most recently I was Principal Product Manager for AI-Driven Security Response at Corelight. Before that I built and led a cybersecurity consulting and advisory practice at Accenture, and spent four years at Recorded Future going from customer success to product architecture.
 
 **How did you get into cybersecurity?**
 Through a broken tool. I was on an insider threat team at Fort Devens, our early automation tool died, and the mission involved crunching big data. I found a VBA book in the electronic library, taught myself enough to build Excel macros that batched the work through, and we got the same outcome. That was my aha moment: I could do the digital stuff. I jumped into cybersecurity face first after that.
