@@ -1,0 +1,45 @@
+[project]
+name = "twin"
+version = "0.1.0"
+description = "Adam Little's digital twin: the agent behind adambuilds.ai"
+requires-python = ">=3.13"
+dependencies = [
+    "openai>=3.8,<4",
+    "python-dotenv>=1.2",
+    "python-frontmatter>=1.3",
+    "pyyaml>=6.0",
+    "requests>=2.32",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1,<10",
+    "pytest-cov>=7.1,<8",
+    "pytest-rerunfailures>=16.6,<17",
+    "ruff>=0.12",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["integration: talks to the real model; needs OPENAI_API_KEY"]
+# A bare `pytest` never talks to the model; pass `-m integration` to run the paid evals.
+addopts = ["--strict-markers", "--strict-config", "-m", "not integration"]
+
+[tool.coverage.run]
+source = ["twin"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
