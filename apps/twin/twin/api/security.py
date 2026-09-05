@@ -4,25 +4,46 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from twin.config import Settings
 
+log = logging.getLogger("twin.api")
 
-def client_key(request: Any, settings: Settings) -> str:
-    """The visitor's address: the first X-Forwarded-For hop when a proxy is trusted, else the peer."""
+
+class RequestLike(Protocol):
+    """The two things client_key reads. Read-only, so Starlette's Request and a plain fake both fit."""
+
+    @property
+    def headers(self) -> Mapping[str, str]: ...
+
+    @property
+    def client(self) -> Any: ...
+
+
+def client_key(request: RequestLike, settings: Settings) -> str:
+    """The visitor's address: the hop a trusted proxy appended to X-Forwarded-For, else the peer.
+
+    A proxy appends the address it saw to the end of the header, so the last non-empty entry is the
+    one it wrote; anything earlier came from the client and can say whatever it likes. Without the
+    header, or with only empty entries, the peer address is used.
+    """
     if settings.trust_proxy:
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            first = forwarded.split(",")[0].strip()
-            if first:
-                return first
-    client = getattr(request, "client", None)
-    return getattr(client, "host", None) or "unknown"
+        hops = [hop.strip() for hop in request.headers.get("x-forwarded-for", "").split(",")]
+        appended = next((hop for hop in reversed(hops) if hop), None)
+        if appended:
+            return appended
+    host = getattr(request.client, "host", None)
+    if not host:
+        log.warning("No client address on the request; such visitors share one rate-limit bucket.")
+        return "unknown"
+    return host
 
 
 def hash_key(key: str, salt: str) -> str:
@@ -61,6 +82,7 @@ class RequestIdMiddleware:
 
         async def send_with_id(message: Message) -> None:
             if message["type"] == "http.response.start":
+                message.setdefault("headers", [])
                 MutableHeaders(scope=message)["X-Request-Id"] = request_id
             await send(message)
 

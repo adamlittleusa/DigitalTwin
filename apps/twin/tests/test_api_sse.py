@@ -1,16 +1,33 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+import logging
+import re
+from collections.abc import Callable, Iterator
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.fakes import ExplodingStream, text_stream, tool_stream
 from twin.api.app import create_app
+from twin.events import AgentEvent, Step
 from twin.wiring import Runtime
 
 Frames = list[tuple[str, dict[str, Any]]]
+
+
+def turn_log_line(caplog: pytest.LogCaptureFixture) -> dict[str, Any]:
+    """The one JSON line the chat route logs per turn: the record that parses and carries an outcome."""
+    parsed: list[dict[str, Any]] = []
+    for record in caplog.records:
+        try:
+            parsed.append(json.loads(record.getMessage()))
+        except ValueError:
+            continue
+    turns = [line for line in parsed if isinstance(line, dict) and "outcome" in line]
+    assert len(turns) == 1, turns
+    return turns[0]
 
 
 def user(content: str) -> dict[str, str]:
@@ -93,3 +110,35 @@ def test_history_reaches_the_model(make_runtime: Callable[..., Runtime]) -> None
     sent = runtime.client.calls[0]["messages"]
     assert sent[1:] == history
     assert runtime.client.calls[0]["safety_identifier"]
+
+
+def test_turn_log_line_has_no_message_text(
+    make_runtime: Callable[..., Runtime], caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.INFO, logger="twin.api"):
+        stream_events(make_runtime([text_stream("Reply text here.")]), [user("SECRET-PHRASE-42")])
+    line = turn_log_line(caplog)
+    assert line["outcome"] == "ok"
+    assert line["rounds"] == 1
+    assert isinstance(line["usage"], dict) and len(line["usage"]) == 3
+    assert all(isinstance(value, int) for value in line["usage"].values())
+    assert re.fullmatch(r"[0-9a-f]{16}", line["client"])
+    for record in caplog.records:
+        assert "SECRET-PHRASE-42" not in record.getMessage()
+        assert "Reply text here." not in record.getMessage()
+
+
+def test_turn_without_done_is_logged_as_disconnected(
+    make_runtime: Callable[..., Runtime], caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The agent always ends with Done, so a turn that never delivers one means the consumer went away."""
+
+    class TruncatedAgent:
+        def run(self, history: list[dict[str, str]], message: str) -> Iterator[AgentEvent]:
+            yield Step("thinking", 1)
+
+    monkeypatch.setattr("twin.api.routes.build_agent", lambda runtime, **kwargs: TruncatedAgent())
+    with caplog.at_level(logging.INFO, logger="twin.api"):
+        frames = stream_events(make_runtime(), [user("hi")])
+    assert [name for name, _ in frames] == ["step"]
+    assert turn_log_line(caplog)["outcome"] == "disconnected"

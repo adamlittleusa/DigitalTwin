@@ -20,6 +20,7 @@ log = logging.getLogger("twin.api")
 def create_app(runtime: Runtime) -> FastAPI:
     app = FastAPI(title="Digital twin API", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.runtime = runtime
+    app.state.in_flight = 0
     # Each add_middleware wraps the previous, so the last one added is outermost: CORS headers land on
     # every response, including the 413 the body-size middleware sends before the app sees a request.
     app.add_middleware(BodySizeLimitMiddleware, limit=MAX_BODY_BYTES)

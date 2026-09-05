@@ -2,6 +2,10 @@
 
 The thread runs the turn to completion regardless of whether anyone is still listening, so a tool
 call that already started (a notification to Adam) finishes even if the visitor closed the tab.
+
+The worker is a daemon thread, so it is killed at interpreter exit: a notification in flight during
+a deploy can be lost. That trade-off is accepted for now; it will be revisited with uvicorn's
+graceful-shutdown timeout in the deployment work.
 """
 
 from __future__ import annotations
