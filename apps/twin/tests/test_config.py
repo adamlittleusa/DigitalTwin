@@ -109,3 +109,75 @@ def test_errors_share_a_base() -> None:
 
     assert issubclass(ConfigError, TwinError)
     assert issubclass(KnowledgeError, TwinError)
+
+
+def test_api_settings_have_defaults() -> None:
+    settings = Settings.from_env({"OPENAI_API_KEY": "sk-test"})
+    assert settings.allowed_origins == config.DEFAULT_ALLOWED_ORIGINS
+    assert settings.site_url == config.DEFAULT_SITE_URL
+    assert settings.trust_proxy is False
+    assert settings.log_salt is None
+    assert (settings.per_client_hourly, settings.per_client_burst) == (20, 5)
+    assert settings.max_user_messages == 8
+    assert settings.daily_call_limit == 500
+    assert settings.pushover_hourly == 10
+    assert settings.model_timeout_seconds == 60.0
+    assert settings.port == 8080
+
+
+def test_api_settings_are_parsed() -> None:
+    settings = Settings.from_env(
+        {
+            "OPENAI_API_KEY": "sk-test",
+            "TWIN_ALLOWED_ORIGINS": "https://adambuilds.ai/, https://www.adambuilds.ai ,",
+            "TWIN_SITE_URL": "https://example.test/",
+            "TWIN_TRUST_PROXY": "true",
+            "TWIN_LOG_SALT": "pepper",
+            "TWIN_PER_CLIENT_HOURLY": "3",
+            "TWIN_PER_CLIENT_BURST": "1",
+            "TWIN_MAX_USER_MESSAGES": "2",
+            "TWIN_DAILY_CALL_LIMIT": "9",
+            "TWIN_PUSHOVER_HOURLY": "4",
+            "TWIN_MODEL_TIMEOUT_SECONDS": "12.5",
+            "PORT": "9000",
+        }
+    )
+    assert settings.allowed_origins == ("https://adambuilds.ai", "https://www.adambuilds.ai")
+    assert settings.site_url == "https://example.test"
+    assert settings.trust_proxy is True
+    assert settings.log_salt == "pepper"
+    assert (settings.per_client_hourly, settings.per_client_burst) == (3, 1)
+    assert settings.max_user_messages == 2
+    assert settings.daily_call_limit == 9
+    assert settings.pushover_hourly == 4
+    assert settings.model_timeout_seconds == 12.5
+    assert settings.port == 9000
+    assert "pepper" not in repr(settings)
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("TWIN_PER_CLIENT_HOURLY", "many"),
+        ("TWIN_DAILY_CALL_LIMIT", "-1"),
+        ("PORT", "8.5"),
+        ("TWIN_TRUST_PROXY", "maybe"),
+        ("TWIN_MODEL_TIMEOUT_SECONDS", "0"),
+    ],
+)
+def test_bad_api_settings_name_the_variable(name: str, value: str) -> None:
+    with pytest.raises(ConfigError) as excinfo:
+        Settings.from_env({"OPENAI_API_KEY": "sk-test", name: value})
+    assert name in str(excinfo.value)
+
+
+def test_trust_proxy_requires_a_salt() -> None:
+    with pytest.raises(ConfigError) as excinfo:
+        Settings.from_env({"OPENAI_API_KEY": "sk-test", "TWIN_TRUST_PROXY": "1"})
+    assert "TWIN_LOG_SALT" in str(excinfo.value)
+
+
+def test_repo_root_walkup_falls_back_to_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(config, "__file__", str(Path(tmp_path.anchor) / "config.py"))
+    assert config._repo_root() == Path.cwd()
