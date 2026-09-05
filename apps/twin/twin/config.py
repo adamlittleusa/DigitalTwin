@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -13,11 +15,12 @@ from twin.errors import TwinError
 
 
 def _repo_root() -> Path:
-    """The repository root when the package sits at apps/twin/twin; the working directory otherwise."""
-    try:
-        return Path(__file__).resolve().parents[3]
-    except IndexError:
-        return Path.cwd()
+    """The repository root when the package runs from the source tree (the nearest ancestor
+    holding apps/ and knowledge/); the working directory otherwise."""
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "knowledge").is_dir() and (parent / "apps").is_dir():
+            return parent
+    return Path.cwd()
 
 
 REPO_ROOT = _repo_root()
@@ -40,7 +43,9 @@ def _read(source: Mapping[str, str], name: str) -> str:
     return (source.get(name) or "").strip()
 
 
-def _int(source: Mapping[str, str], name: str, default: int) -> int:
+def _int(
+    source: Mapping[str, str], name: str, default: int, *, minimum: int = 0, maximum: int | None = None
+) -> int:
     raw = _read(source, name)
     if not raw:
         return default
@@ -48,8 +53,10 @@ def _int(source: Mapping[str, str], name: str, default: int) -> int:
         value = int(raw)
     except ValueError:
         raise ConfigError(f"{name} must be a whole number, got {raw!r}") from None
-    if value < 0:
-        raise ConfigError(f"{name} must not be negative, got {raw!r}")
+    if value < minimum or (maximum is not None and value > maximum):
+        if maximum is None:
+            raise ConfigError(f"{name} must be at least {minimum}, got {raw!r}")
+        raise ConfigError(f"{name} must be between {minimum} and {maximum}, got {raw!r}")
     return value
 
 
@@ -61,8 +68,8 @@ def _positive_float(source: Mapping[str, str], name: str, default: float) -> flo
         value = float(raw)
     except ValueError:
         raise ConfigError(f"{name} must be a number, got {raw!r}") from None
-    if value <= 0:
-        raise ConfigError(f"{name} must be greater than zero, got {raw!r}")
+    if not math.isfinite(value) or value <= 0:
+        raise ConfigError(f"{name} must be a finite number greater than zero, got {raw!r}")
     return value
 
 
@@ -81,8 +88,19 @@ def _csv(source: Mapping[str, str], name: str, default: tuple[str, ...]) -> tupl
     raw = _read(source, name)
     if not raw:
         return default
-    items = tuple(item.strip().rstrip("/") for item in raw.split(",") if item.strip())
-    return items or default
+    items = tuple(item.strip() for item in raw.split(",") if item.strip())
+    if not items:
+        raise ConfigError(f"{name} is set but contains no values")
+    return items
+
+
+def _origin(name: str, value: str) -> str:
+    """The origin with any trailing slash removed, once it is confirmed to be a bare origin."""
+    parts = urlsplit(value)
+    path = parts.path[:-1] if parts.path.endswith("/") else parts.path
+    if parts.scheme not in {"http", "https"} or not parts.netloc or path or parts.query or parts.fragment:
+        raise ConfigError(f"{name} must be an origin like https://example.com, got {value!r}")
+    return value[:-1] if value.endswith("/") else value
 
 
 @dataclass(frozen=True)
@@ -90,7 +108,7 @@ class Settings:
     openai_api_key: str = field(repr=False)
     model: str
     knowledge_dir: Path
-    pushover_user: str | None
+    pushover_user: str | None = field(repr=False)
     pushover_token: str | None = field(repr=False)
     allowed_origins: tuple[str, ...] = DEFAULT_ALLOWED_ORIGINS
     site_url: str = DEFAULT_SITE_URL
@@ -125,8 +143,11 @@ class Settings:
             knowledge_dir=Path(knowledge_dir).expanduser() if knowledge_dir else DEFAULT_KNOWLEDGE_DIR,
             pushover_user=_read(source, "PUSHOVER_USER") or None,
             pushover_token=_read(source, "PUSHOVER_TOKEN") or None,
-            allowed_origins=_csv(source, "TWIN_ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS),
-            site_url=(_read(source, "TWIN_SITE_URL") or DEFAULT_SITE_URL).rstrip("/"),
+            allowed_origins=tuple(
+                _origin("TWIN_ALLOWED_ORIGINS", item)
+                for item in _csv(source, "TWIN_ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
+            ),
+            site_url=_origin("TWIN_SITE_URL", _read(source, "TWIN_SITE_URL") or DEFAULT_SITE_URL),
             trust_proxy=trust_proxy,
             log_salt=log_salt,
             per_client_hourly=_int(source, "TWIN_PER_CLIENT_HOURLY", 20),
@@ -135,7 +156,7 @@ class Settings:
             daily_call_limit=_int(source, "TWIN_DAILY_CALL_LIMIT", 500),
             pushover_hourly=_int(source, "TWIN_PUSHOVER_HOURLY", 10),
             model_timeout_seconds=_positive_float(source, "TWIN_MODEL_TIMEOUT_SECONDS", 60.0),
-            port=_int(source, "PORT", 8080),
+            port=_int(source, "PORT", 8080, minimum=1, maximum=65535),
         )
 
 

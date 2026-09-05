@@ -161,8 +161,17 @@ def test_api_settings_are_parsed() -> None:
         ("TWIN_PER_CLIENT_HOURLY", "many"),
         ("TWIN_DAILY_CALL_LIMIT", "-1"),
         ("PORT", "8.5"),
+        ("PORT", "0"),
+        ("PORT", "70000"),
         ("TWIN_TRUST_PROXY", "maybe"),
         ("TWIN_MODEL_TIMEOUT_SECONDS", "0"),
+        ("TWIN_MODEL_TIMEOUT_SECONDS", "inf"),
+        ("TWIN_MODEL_TIMEOUT_SECONDS", "nan"),
+        ("TWIN_MODEL_TIMEOUT_SECONDS", "soon"),
+        ("TWIN_ALLOWED_ORIGINS", " , , "),
+        ("TWIN_ALLOWED_ORIGINS", "*"),
+        ("TWIN_ALLOWED_ORIGINS", "https://adambuilds.ai/chat"),
+        ("TWIN_SITE_URL", "adambuilds.ai"),
     ],
 )
 def test_bad_api_settings_name_the_variable(name: str, value: str) -> None:
@@ -177,7 +186,29 @@ def test_trust_proxy_requires_a_salt() -> None:
     assert "TWIN_LOG_SALT" in str(excinfo.value)
 
 
+@pytest.mark.parametrize("value", ["0", "false", "no", "off", "FALSE"])
+def test_trust_proxy_false_spellings_are_recognized(value: str) -> None:
+    settings = Settings.from_env({"OPENAI_API_KEY": "sk-test", "TWIN_TRUST_PROXY": value})
+    assert settings.trust_proxy is False
+
+
 def test_repo_root_walkup_falls_back_to_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(config, "__file__", str(Path(tmp_path.anchor) / "config.py"))
     assert config._repo_root() == Path.cwd()
+
+
+def test_repo_root_ignores_site_packages_layout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    site_packages_twin = tmp_path / "app" / ".venv" / "lib" / "python3.13" / "site-packages" / "twin"
+    site_packages_twin.mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(config, "__file__", str(site_packages_twin / "config.py"))
+    assert config._repo_root() == Path.cwd()
+
+
+def test_repo_root_finds_the_source_tree(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    source_tree = tmp_path / "repo" / "apps" / "twin" / "twin"
+    source_tree.mkdir(parents=True)
+    (tmp_path / "repo" / "knowledge").mkdir(parents=True)
+    monkeypatch.setattr(config, "__file__", str(source_tree / "config.py"))
+    assert config._repo_root() == (tmp_path / "repo").resolve()
