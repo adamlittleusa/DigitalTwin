@@ -8,6 +8,7 @@ import pytest
 import requests
 
 from twin import tools as tl
+from twin.projects import ProjectCard, ProjectCatalog
 from twin.tools import (
     LoggingNotifier,
     PushoverNotifier,
@@ -52,9 +53,9 @@ def tool_call(name: str, arguments: Any, call_id: str = "call_1") -> SimpleNames
     return SimpleNamespace(id=call_id, function=SimpleNamespace(name=name, arguments=raw))
 
 
-def test_schemas_list_all_three_tools() -> None:
+def test_schemas_list_all_four_tools() -> None:
     names = [schema["function"]["name"] for schema in tl.TOOL_SCHEMAS]
-    assert names == ["record_user_details", "record_unknown_question", "record_sensitive_question"]
+    assert names == ["record_user_details", "record_unknown_question", "record_sensitive_question", "show_project"]
     assert TwinTools(FakeNotifier()).schemas == tl.TOOL_SCHEMAS
     assert isinstance(tl.TOOL_SCHEMAS, tuple)
 
@@ -247,3 +248,33 @@ def test_schema_matches_handler_signature(schema: dict[str, Any]) -> None:
     assert set(function["parameters"]["properties"]) == set(params)
     required = {n for n, p in params.items() if p.default is inspect.Parameter.empty}
     assert set(function["parameters"]["required"]) == required
+
+
+CATALOG = ProjectCatalog((ProjectCard("digital-twin", "Digital twin", "An agent.", "https://x/projects/digital-twin"),))
+
+
+def test_show_project_known_slug() -> None:
+    tools = TwinTools(FakeNotifier(), catalog=CATALOG)
+    assert tools.call("show_project", {"slug": "digital-twin"}) == "Shown: Digital twin"
+
+
+def test_show_project_unknown_slug_lists_known_ones() -> None:
+    tools = TwinTools(FakeNotifier(), catalog=CATALOG)
+    assert tools.call("show_project", {"slug": "nope"}) == "Unknown project: nope. Known: digital-twin"
+
+
+def test_show_project_without_a_catalog() -> None:
+    assert TwinTools(FakeNotifier()).call("show_project", {"slug": "digital-twin"}) == "No projects available"
+
+
+def test_show_project_schema_exposes_only_slug() -> None:
+    schema = tl.SHOW_PROJECT["parameters"]
+    assert list(schema["properties"]) == ["slug"]
+    assert schema["required"] == ["slug"]
+    assert schema["additionalProperties"] is False
+
+
+def test_recording_tools_accept_show_project() -> None:
+    tools = RecordingTools()
+    assert tools.call("show_project", {"slug": "digital-twin"}) == "OK"
+    assert tools.calls == [("show_project", {"slug": "digital-twin"})]

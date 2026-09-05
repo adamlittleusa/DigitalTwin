@@ -10,6 +10,8 @@ from typing import Any, Final, Protocol
 
 import requests
 
+from twin.projects import ProjectCatalog
+
 log = logging.getLogger(__name__)
 
 PUSHOVER_URL = "https://api.pushover.net/1/messages.json"
@@ -90,10 +92,31 @@ RECORD_SENSITIVE_QUESTION: dict[str, Any] = {
     },
 }
 
+SHOW_PROJECT: dict[str, Any] = {
+    "name": "show_project",
+    "description": (
+        "Show the visitor a card for one of the projects on the site. Use it when a project in the "
+        "knowledge sections is what the visitor is asking about or the natural next thing to show them. "
+        "Use it at most once per reply."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "slug": {
+                "type": "string",
+                "description": "One of the project slugs named in the knowledge sections, such as digital-twin",
+            },
+        },
+        "required": ["slug"],
+        "additionalProperties": False,
+    },
+}
+
 TOOL_SCHEMAS: Final[tuple[dict[str, Any], ...]] = (
     {"type": "function", "function": RECORD_USER_DETAILS},
     {"type": "function", "function": RECORD_UNKNOWN_QUESTION},
     {"type": "function", "function": RECORD_SENSITIVE_QUESTION},
+    {"type": "function", "function": SHOW_PROJECT},
 )
 
 
@@ -137,12 +160,14 @@ class ToolRegistry(Protocol):
 class TwinTools:
     """The real tool handlers, reporting through whichever Notifier they are given."""
 
-    def __init__(self, notifier: Notifier) -> None:
+    def __init__(self, notifier: Notifier, catalog: ProjectCatalog | None = None) -> None:
         self._notifier = notifier
+        self._catalog = catalog
         self._handlers: dict[str, Callable[..., str]] = {
             "record_user_details": self.record_user_details,
             "record_unknown_question": self.record_unknown_question,
             "record_sensitive_question": self.record_sensitive_question,
+            "show_project": self.show_project,
         }
 
     @property
@@ -168,6 +193,14 @@ class TwinTools:
 
     def record_sensitive_question(self, question: str) -> str:
         return self._notify(f"Sensitive question deflected\nquestion: {_field(question, FIELD_LIMITS['question'])}")
+
+    def show_project(self, slug: str) -> str:
+        if self._catalog is None:
+            return "No projects available"
+        card = self._catalog.get(slug)
+        if card is None:
+            return f"Unknown project: {slug}. Known: {', '.join(self._catalog.slugs)}"
+        return f"Shown: {card.title}"
 
     def _notify(self, text: str) -> str:
         try:
