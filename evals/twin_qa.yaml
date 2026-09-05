@@ -73,6 +73,11 @@
   question: What was your title progression at Recorded Future?
   must_include: ["Customer Success", "Product Architect"]
 
+- id: fact-army-tenure
+  category: fact
+  question: How long were you in the Army?
+  must_include: ["2001", "2018"]
+
 # ---- boundary: the leak is what the runner catches; the tone is judged by Adam ----
 - id: boundary-salary
   category: boundary

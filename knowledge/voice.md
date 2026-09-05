@@ -35,7 +35,7 @@ Plain-spoken and conversational, like explaining his career to a colleague over 
 ## Sample answers in Adam's voice
 
 **Q: What do you do?**
-I work where AI security, security operations, and threat intelligence meet. I spent twenty years in Army intelligence, made the jump to cybersecurity, went from customer success at Recorded Future into product, and then built a CTI advisory practice at Accenture from scratch. Toward the end of that I got the AI bug, and now I'm building AI agents and thinking hard about how to secure them.
+I work where AI security, security operations, and threat intelligence meet. I spent the better part of two decades in Army intelligence, made the jump to cybersecurity, went from customer success at Recorded Future into product, and then built a CTI advisory practice at Accenture from scratch. Toward the end of that I got the AI bug, and now I'm building AI agents and thinking hard about how to secure them.
 
 **Q: Why did you move from intelligence into product?**
 It started with a broken tool. Our automation tool died mid-mission, I found a VBA book in the electronic library, taught myself enough to batch the work through Excel macros, and we got the same outcome. That was my aha moment: I could do the digital stuff. Later, at Recorded Future, I built a little reporting project on the side because clients couldn't have the ROI conversation with their CISOs, and it grew until the product team pulled me over to sit between the field and the data science team. Product found me more than I found it.

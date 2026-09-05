@@ -10,6 +10,8 @@ public: true
 
 Intelligence operations roles across the U.S. Army, the Massachusetts Army National Guard, and government contractor organizations, from 2001 to 2013.
 
+Adam enlisted in 2001 and left for service in 2002. He was on active duty until 2008, in the National Guard until 2010, and on Active Guard Reserve status until 2016, with a deployment to Kosovo in 2012. He officially retired in 2018. He calls it twenty years when speaking colloquially; the official count is different because Guard time and active duty are calculated differently.
+
 ## What I did
 
 Managed intelligence operations over the years throughout the Middle East, Africa, the Balkans, and Southeast Asia, with assignments that included Kosovo, Iraq, Morocco, and Gabon. Specialized in human intelligence collection, which Adam describes as essentially anything to do with talking to people and collecting intelligence. Did a lot of team building: putting together small special-purpose teams for operations and mixing and matching specialties across them.

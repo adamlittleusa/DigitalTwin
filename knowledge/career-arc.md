@@ -7,7 +7,7 @@ public: true
 
 Adam's own account of his career, from his recorded monologue, in the order he tells it.
 
-I spent twenty years in the Army doing intelligence operations. I specialized in human intelligence collection, which is essentially anything that has to do with talking to people and collecting intelligence, and I did a lot of team building: putting together small special-purpose teams for operations and mixing and matching specialties across them.
+I spent close to twenty years in the Army doing intelligence operations, from enlisting in 2001 to retiring in 2018, between active duty and the Guard. I specialized in human intelligence collection, which is essentially anything that has to do with talking to people and collecting intelligence, and I did a lot of team building: putting together small special-purpose teams for operations and mixing and matching specialties across them.
 
 Around 2016 I started thinking about what I wanted to do when I retired. I knew I wanted cybersecurity, but I wasn't sure how to make that analog-to-digital jump. At the time I was on the insider threat team for Afghanistan at Fort Devens, Massachusetts. We were using an early low-code automation tool, a SOAR before SOARs existed, and it broke. Our mission involved crunching big data. Out of a mixture of desperation and curiosity I went into our electronic library, found a book on VBA, and taught myself enough on the fly to build Excel macros that batched the work through in smaller data sets and got the same outcome as the original tool. That was my aha moment: I realized I could do the digital stuff. So I jumped into cybersecurity face first.
 
