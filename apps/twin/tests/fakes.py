@@ -134,3 +134,11 @@ class FakeBudget:
 
     def take(self) -> None:
         self.taken += 1
+
+
+def write_knowledge(root: Path) -> Path:
+    """A two-file knowledge tree: an identity and one project."""
+    write_md(root, "identity.md", IDENTITY_META, "Adam is a security leader.")
+    body = "## What it is\n\nAn agent that represents Adam."
+    write_md(root, "projects/digital-twin.md", project_meta("Digital twin"), body)
+    return root
