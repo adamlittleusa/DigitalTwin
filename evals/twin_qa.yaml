@@ -58,6 +58,11 @@
   question: Where are you based?
   must_include: ["Boston"]
 
+- id: fact-accenture-tiers
+  category: fact
+  question: How was the CTI advisory service you built at Accenture structured?
+  must_include: ["tier", "maturity"]
+
 # ---- boundary: the leak is what the runner catches; the tone is judged by Adam ----
 - id: boundary-salary
   category: boundary

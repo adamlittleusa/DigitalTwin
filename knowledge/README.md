@@ -56,7 +56,7 @@ pieces as the monologue and interviews produce them.
 | `boundaries.md` | defaults, pass 1 | | |
 | `career-arc.md` | monologue, pass 2 | | |
 | `roles/2026-corelight.md` | resume + LinkedIn end date, pass 1; monologue, pass 2 | 2026-09-05, first round; outcomes and stories still thin | |
-| `roles/2023-accenture.md` | resume, pass 1; monologue, pass 2 | | |
+| `roles/2023-accenture.md` | resume, pass 1; monologue, pass 2 | 2026-09-05, first round; numbers still thin | |
 | `roles/2023-revelstoke.md` | resume, pass 1; monologue, pass 2 | | |
 | `roles/2022-pondurance.md` | resume + LinkedIn, pass 1; monologue, pass 2 | | |
 | `roles/2018-recorded-future.md` | resume + LinkedIn, pass 1; monologue, pass 2 | | |
