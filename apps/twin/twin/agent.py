@@ -4,22 +4,20 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from twin.config import Settings
 from twin.events import AgentEvent, Delta, Done, Error, Project, Step, ToolCall, ToolResult, Usage, label_for
 from twin.projects import ProjectCard, ProjectCatalog
-from twin.tools import ToolRegistry, dispatch
+from twin.tools import ToolRegistry, dispatch, is_failure
 
 log = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 5
 FALLBACK_REPLY = "I didn't manage to put an answer together just now. Could you ask that again?"
 MODEL_ERROR_MESSAGE = "I lost my train of thought there. Could you ask that again?"
-_FAILED_RESULT_PREFIXES = ("Tool error", "Unknown", "No projects")
-_FAILED_RESULT = "notification failed"
 
 
 class Budget(Protocol):
@@ -48,9 +46,12 @@ class _Call:
 
     def slug(self) -> str | None:
         try:
-            value = json.loads(self.function.arguments or "{}").get("slug")
-        except (json.JSONDecodeError, AttributeError):
+            parsed = json.loads(self.function.arguments or "{}")
+        except json.JSONDecodeError:
             return None
+        if not isinstance(parsed, dict):
+            return None
+        value = parsed.get("slug")
         return value if isinstance(value, str) else None
 
 
@@ -150,7 +151,7 @@ class TwinAgent:
         round_number: int,
         composing: bool,
         buffer: list[str],
-    ) -> Iterator[AgentEvent]:
+    ) -> Generator[AgentEvent, None, _Round]:
         """Stream one model call, yielding composing and delta events; returns the round's summary.
 
         Delta text is appended to `buffer` as it is yielded so a failure mid-stream loses nothing.
@@ -248,9 +249,7 @@ def _ok(tool_message: dict[str, Any]) -> bool:
         result = json.loads(tool_message["content"])
     except (KeyError, TypeError, json.JSONDecodeError):
         return False
-    if not isinstance(result, str):
-        return False
-    return result != _FAILED_RESULT and not result.startswith(_FAILED_RESULT_PREFIXES)
+    return isinstance(result, str) and not is_failure(result)
 
 
 def _usage_from(raw: Any) -> Usage:

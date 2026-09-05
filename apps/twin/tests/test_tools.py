@@ -15,6 +15,7 @@ from twin.tools import (
     RecordingTools,
     TwinTools,
     dispatch,
+    is_failure,
 )
 
 
@@ -212,6 +213,22 @@ def test_dispatch_rejects_non_object_arguments() -> None:
 
 def test_recording_tools_reports_unknown_tool() -> None:
     assert RecordingTools().call("nope", {}) == "Unknown tool: nope"
+
+
+@pytest.mark.parametrize(
+    "result,failed",
+    [
+        ("notification failed", True),
+        ("No projects available", True),
+        ("Tool error: ValueError", True),
+        ("Unknown tool: nope", True),
+        ("Unknown project: nope. Known: digital-twin", True),
+        ("OK", False),
+        ("Shown: Digital twin", False),
+    ],
+)
+def test_is_failure(result: str, failed: bool) -> None:
+    assert is_failure(result) is failed
 
 
 def test_long_name_cannot_push_the_email_out_of_the_message() -> None:

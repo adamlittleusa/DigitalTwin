@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from openai.types.chat import ChatCompletionChunk
 
 from tests.fakes import (
     ExplodingStream,
@@ -11,6 +12,7 @@ from tests.fakes import (
     FakeNotifier,
     ScriptedClient,
     chunk,
+    frag,
     text_stream,
     tool_stream,
     usage_chunk,
@@ -41,6 +43,32 @@ def kinds(events: list[Any]) -> list[str]:
 
 def capped_streams() -> list[Any]:
     return [tool_stream(UNKNOWN, {"question": f"q{i}"}, call_id=f"id-{i}") for i in range(ag.MAX_TOOL_ROUNDS)]
+
+
+def sdk_chunk(delta: dict[str, Any], finish: str | None = None) -> ChatCompletionChunk:
+    """A chunk built by the SDK's own model, so the agent is exercised against real attribute shapes."""
+    return ChatCompletionChunk.model_validate(
+        {
+            "id": "c",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": "m",
+            "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+        }
+    )
+
+
+def sdk_usage_chunk(prompt: int, completion: int) -> ChatCompletionChunk:
+    return ChatCompletionChunk.model_validate(
+        {
+            "id": "c",
+            "object": "chat.completion.chunk",
+            "created": 0,
+            "model": "m",
+            "choices": [],
+            "usage": {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": prompt + completion},
+        }
+    )
 
 
 def test_plain_reply_streams_steps_deltas_and_done() -> None:
@@ -86,6 +114,60 @@ def test_tool_round_then_text_keeps_interim_text() -> None:
         ],
     }
     assert second[-1] == {"role": "tool", "content": json.dumps("OK"), "tool_call_id": "call_1"}
+
+
+def test_two_tool_calls_in_one_round_are_merged_by_index() -> None:
+    a, b = json.dumps({"question": "one"}), json.dumps({"slug": "digital-twin"})
+    stream = [
+        chunk(frags=[frag(0, call_id="a", name=UNKNOWN, arguments=a[:4])]),
+        chunk(frags=[frag(1, call_id="b", name="show_project", arguments=b[:4])]),
+        chunk(frags=[frag(0, arguments=a[4:]), frag(1, arguments=b[4:])]),
+        chunk(finish="tool_calls"),
+        usage_chunk(),
+    ]
+    client = ScriptedClient([stream, text_stream("ok")])
+    tools = RecordingTools()
+    events = events_of(client, tools, catalog=CATALOG)
+    assert tools.calls == [(UNKNOWN, {"question": "one"}), ("show_project", {"slug": "digital-twin"})]
+    assert events[-1].tools == (UNKNOWN, "show_project")
+    assert [c["id"] for c in client.calls[1]["messages"][-3]["tool_calls"]] == ["a", "b"]
+    assert [e.name for e in events if isinstance(e, ToolResult)] == [UNKNOWN, "show_project"]
+
+
+def test_real_sdk_chunks_round_trip() -> None:
+    fragment = {
+        "index": 0,
+        "id": "t1",
+        "type": "function",
+        "function": {"name": UNKNOWN, "arguments": json.dumps({"question": "q"})},
+    }
+    first = [
+        sdk_chunk({"content": "Hi"}),
+        sdk_chunk({"tool_calls": [fragment]}),
+        sdk_chunk({}, finish="tool_calls"),
+        sdk_usage_chunk(5, 2),
+    ]
+    second = [sdk_chunk({"content": "Done"}), sdk_chunk({}, finish="stop"), sdk_usage_chunk(5, 2)]
+    tools = RecordingTools()
+    events = events_of(ScriptedClient([first, second]), tools)
+    assert tools.calls == [(UNKNOWN, {"question": "q"})]
+    assert events[-1].reply == "HiDone"
+    assert events[-1].usage == Usage(10, 4, 0)
+
+
+@pytest.mark.parametrize(
+    "arguments,expected",
+    [
+        ('{"slug": "digital-twin"}', "digital-twin"),
+        ('{"slug": 3}', None),
+        ("[1, 2]", None),
+        ('"digital-twin"', None),
+        ("{not json", None),
+        ("", None),
+    ],
+)
+def test_call_slug_reads_only_a_string_slug_from_an_object(arguments: str, expected: str | None) -> None:
+    assert ag._Call("id", ag._Function("show_project", arguments)).slug() == expected
 
 
 def test_show_project_emits_a_card_once() -> None:
@@ -167,6 +249,7 @@ def test_failure_before_the_first_chunk_yields_error_then_done() -> None:
     assert kinds(events) == ["step", "error", "done"]
     assert events[1] == Error("model_error", ag.MODEL_ERROR_MESSAGE)
     assert events[2].reply == ag.FALLBACK_REPLY
+    assert events[2].rounds == 1
 
 
 def test_failure_mid_stream_keeps_partial_text() -> None:

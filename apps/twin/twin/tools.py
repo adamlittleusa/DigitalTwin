@@ -150,6 +150,22 @@ class LoggingNotifier:
         log.info("NOTIFICATION: %s", text)
 
 
+# Handler results that mean the tool did not do what the model asked. The agent decides ToolResult.ok through
+# is_failure, so the wording lives here and a rewording cannot silently flip that decision.
+NOTIFICATION_FAILED: Final = "notification failed"
+NO_PROJECTS: Final = "No projects available"
+TOOL_ERROR_PREFIX: Final = "Tool error"
+UNKNOWN_TOOL_PREFIX: Final = "Unknown tool"
+UNKNOWN_PROJECT_PREFIX: Final = "Unknown project"
+
+
+def is_failure(result: str) -> bool:
+    """Whether a handler result means the tool did not do what the model asked."""
+    return result in (NOTIFICATION_FAILED, NO_PROJECTS) or result.startswith(
+        (TOOL_ERROR_PREFIX, UNKNOWN_TOOL_PREFIX, UNKNOWN_PROJECT_PREFIX)
+    )
+
+
 class ToolRegistry(Protocol):
     @property
     def schemas(self) -> tuple[dict[str, Any], ...]: ...
@@ -177,7 +193,7 @@ class TwinTools:
     def call(self, name: str, arguments: dict[str, Any]) -> str:
         handler = self._handlers.get(name)
         if handler is None:
-            return f"Unknown tool: {name}"
+            return f"{UNKNOWN_TOOL_PREFIX}: {name}"
         return handler(**arguments)
 
     def record_user_details(self, email: str, name: str = "", notes: str = "") -> str:
@@ -199,10 +215,10 @@ class TwinTools:
             slug = ""
         cleaned_slug = _field(slug, FIELD_LIMITS["slug"])
         if self._catalog is None:
-            return "No projects available"
+            return NO_PROJECTS
         card = self._catalog.get(cleaned_slug)
         if card is None:
-            return f"Unknown project: {cleaned_slug}. Known: {', '.join(self._catalog.slugs)}"
+            return f"{UNKNOWN_PROJECT_PREFIX}: {cleaned_slug}. Known: {', '.join(self._catalog.slugs)}"
         return f"Shown: {card.title}"
 
     def _notify(self, text: str) -> str:
@@ -210,7 +226,7 @@ class TwinTools:
             self._notifier.push(text)
         except Exception:
             log.exception("Notification failed for: %s", text)
-            return "notification failed"
+            return NOTIFICATION_FAILED
         return "OK"
 
 
@@ -230,7 +246,7 @@ class RecordingTools:
     def call(self, name: str, arguments: dict[str, Any]) -> str:
         self.calls.append((name, arguments))
         if name not in _KNOWN_TOOL_NAMES:
-            return f"Unknown tool: {name}"
+            return f"{UNKNOWN_TOOL_PREFIX}: {name}"
         return "OK"
 
 
@@ -252,5 +268,5 @@ def _run_one(tools: ToolRegistry, call: Any) -> dict[str, Any]:
         result = tools.call(name, arguments)
     except Exception as exc:
         log.exception("Tool %s failed with arguments %r", name, raw_arguments)
-        result = f"Tool error: {type(exc).__name__}"
+        result = f"{TOOL_ERROR_PREFIX}: {type(exc).__name__}"
     return {"role": "tool", "content": json.dumps(result), "tool_call_id": call_id}
