@@ -320,5 +320,5 @@ def test_real_knowledge_tree_loads() -> None:
     loaded = load_knowledge(DEFAULT_KNOWLEDGE_DIR)
     kinds = {f.kind for f in loaded.files}
     assert {"identity", "boundaries", "faq", "role", "project"} <= kinds
-    assert len([f for f in loaded.files if f.kind == "role"]) >= 9
+    assert len([f for f in loaded.files if f.kind == "role"]) >= 8
     assert all(f.reviewed is None or len(f.reviewed) == 10 for f in loaded.files)

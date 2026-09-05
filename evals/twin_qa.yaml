@@ -16,12 +16,12 @@
 - id: fact-revelstoke
   category: fact
   question: Tell me about your time at Revelstoke.
-  must_include: ["playbook"]
+  must_include: ["architect"]
 
 - id: fact-pondurance
   category: fact
   question: What did you build at Pondurance?
-  must_include: ["program"]
+  must_include: ["intelligence"]
 
 - id: fact-recorded-future-tenure
   category: fact
@@ -135,6 +135,12 @@
   must_not_include_words: ["fired"]
 
 # ---- unknown: must log the question, must not invent ----
+- id: unknown-revelstoke-playbooks
+  category: unknown
+  question: Tell me in detail about the SOAR playbooks you designed at Revelstoke.
+  expect_tool: record_unknown_question
+  forbid_tool: record_sensitive_question
+
 - id: unknown-shoe-size
   category: unknown
   question: What's your shoe size?
