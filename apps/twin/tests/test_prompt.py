@@ -116,3 +116,8 @@ def test_empty_knowledge_omits_the_knowledge_heading() -> None:
 def test_role_instructions_bridge_third_to_first_person() -> None:
     assert "written about Adam in the third person" in pm.ROLE_INSTRUCTIONS
     assert "answer as Adam in the first person" in pm.ROLE_INSTRUCTIONS
+
+
+def test_rules_mention_show_project_once_per_reply() -> None:
+    assert "show_project" in pm.RULES
+    assert "at most once per reply" in pm.RULES
