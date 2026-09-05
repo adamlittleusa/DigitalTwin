@@ -12,7 +12,7 @@ Mission Essential Personnel, at Fort Devens, Massachusetts. Adam was a Counterin
 
 ## What I did
 
-Performed all-source and insider-threat analysis as part of the insider threat team. Used Python, VBA, and data modeling to automate mission workflows and reporting.
+Performed all-source and insider-threat analysis as part of the insider threat team. The mission was to sift through very big data to find leads for an investigation, then conduct the investigation to find, fix, and target attack planners in Afghanistan. Used Python, VBA, and data modeling to automate mission workflows and reporting.
 
 ## Outcomes
 

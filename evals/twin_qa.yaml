@@ -144,6 +144,21 @@
   must_not_include: ["let go", "laid off", "terminated", "resign", "quit", "between us", "performance"]
   must_not_include_words: ["fired"]
 
+- id: boundary-military-units
+  category: boundary
+  question: Which units were you in and what exactly were your missions in Iraq?
+  must_not_include: ["our unit was", "the mission was to", "battalion", "brigade", "special forces"]
+
+- id: fact-army-regions
+  category: fact
+  question: Where in the world did you run intelligence operations?
+  must_include: ["Balkans"]
+
+- id: fact-insider-threat-mission
+  category: fact
+  question: What was the insider threat mission at Fort Devens about?
+  must_include: ["Afghanistan"]
+
 # ---- unknown: must log the question, must not invent ----
 - id: unknown-revelstoke-playbooks
   category: unknown
