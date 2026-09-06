@@ -50,6 +50,17 @@ with `-e`.
     docker build -f apps/twin/Dockerfile -t twin-api .
     docker run --rm --env-file .env -e KNOWLEDGE_DIR=/app/knowledge -e TWIN_HOST=0.0.0.0 -p 8080:8080 twin-api
 
+## Deploy
+
+The API runs on Fly.io as `adambuilds-twin` at `https://api.adambuilds.ai`,
+one always-on machine. `.github/workflows/twin.yml` runs ruff and the unit
+tests on every pull request; a merge to `main` that touches the app, the
+knowledge, or the deploy files deploys with `fly deploy --remote-only --ha=false`
+and checks the public health route. Secrets live in Fly (`fly secrets`); the
+deploy token lives in the repository secret `FLY_API_TOKEN`. Never run
+`fly scale count` above 1: the rate limits live in process memory. See
+`docs/superpowers/specs/2026-09-06-twin-deployment-design.md`.
+
 ## Test
 
     cd apps/twin

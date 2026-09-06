@@ -140,6 +140,7 @@ class Settings:
     model_timeout_seconds: float = 60.0
     port: int = 8080
     host: str = DEFAULT_HOST
+    client_ip_header: str = ""
 
     @property
     def pushover_enabled(self) -> bool:
@@ -177,6 +178,7 @@ class Settings:
             model_timeout_seconds=_positive_float(source, "TWIN_MODEL_TIMEOUT_SECONDS", 60.0),
             port=_int(source, "PORT", 8080, minimum=1, maximum=65535),
             host=_read(source, "TWIN_HOST") or DEFAULT_HOST,
+            client_ip_header=_read(source, "TWIN_CLIENT_IP_HEADER"),
         )
 
 

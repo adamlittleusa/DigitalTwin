@@ -274,3 +274,23 @@ def test_client_key_is_unknown_without_a_peer_address(
     with caplog.at_level(logging.WARNING, logger="twin.api"):
         assert client_key(req(peer=None), make_runtime().settings) == "unknown"
     assert any("rate-limit bucket" in r.getMessage() for r in caplog.records)
+
+
+def test_client_key_prefers_the_configured_header_behind_a_trusted_proxy(
+    make_runtime: Callable[..., Runtime],
+) -> None:
+    trusted = make_runtime(TWIN_TRUST_PROXY="true", TWIN_LOG_SALT="s", TWIN_CLIENT_IP_HEADER="Fly-Client-IP").settings
+    with_header = FakeRequest({"fly-client-ip": "198.51.100.7", "x-forwarded-for": "1.2.3.4"}, Address("10.0.0.1", 1))
+    assert client_key(with_header, trusted) == "198.51.100.7"
+    without_header = FakeRequest({"x-forwarded-for": "1.2.3.4, 203.0.113.9"}, Address("10.0.0.1", 1))
+    assert client_key(without_header, trusted) == "203.0.113.9"
+    blank_header = FakeRequest({"fly-client-ip": "  "}, Address("10.0.0.1", 1))
+    assert client_key(blank_header, trusted) == "10.0.0.1"
+
+
+def test_client_ip_header_is_ignored_when_not_configured(make_runtime: Callable[..., Runtime]) -> None:
+    trusted = make_runtime(TWIN_TRUST_PROXY="true", TWIN_LOG_SALT="s").settings
+    request = FakeRequest({"fly-client-ip": "198.51.100.7"}, Address("10.0.0.1", 1))
+    assert client_key(request, trusted) == "10.0.0.1"
+    untrusted = make_runtime(TWIN_CLIENT_IP_HEADER="Fly-Client-IP").settings
+    assert client_key(request, untrusted) == "10.0.0.1"
