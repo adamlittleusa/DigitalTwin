@@ -1,0 +1,86 @@
+import { createSseParser, type SseFrame } from "@/twin/sse";
+
+export type ChatHttpErrorBody = {
+  code: string;
+  message: string;
+  retry_after?: number;
+};
+
+export class ChatHttpError extends Error {
+  status: number;
+  body?: ChatHttpErrorBody;
+
+  constructor(status: number, body?: ChatHttpErrorBody) {
+    super(body?.message ?? `twin API responded with ${status}`);
+    this.name = "ChatHttpError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
+/**
+ * Determine the base URL for the twin API. `NEXT_PUBLIC_TWIN_API`, when set,
+ * always wins. Otherwise the base is derived from the host: localhost
+ * targets a local dev server, adambuilds.ai (and www) targets production,
+ * anything else is off-domain (`null`).
+ */
+export function apiBase(host: string = window.location.hostname): string | null {
+  const envBase = process.env.NEXT_PUBLIC_TWIN_API;
+  if (envBase) return envBase;
+
+  if (host === "localhost" || host === "127.0.0.1") {
+    return "http://localhost:8080";
+  }
+  if (host === "adambuilds.ai" || host === "www.adambuilds.ai") {
+    return "https://api.adambuilds.ai";
+  }
+  return null;
+}
+
+export async function fetchExamples(base: string): Promise<string[]> {
+  const response = await fetch(`${base}/v1/examples`);
+  return (await response.json()) as string[];
+}
+
+export type ChatMessage = { role: "user" | "assistant"; text: string };
+
+export async function streamChat(
+  base: string,
+  messages: ChatMessage[],
+  onFrame: (frame: SseFrame) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${base}/v1/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let body: ChatHttpErrorBody | undefined;
+    try {
+      body = (await response.json()) as ChatHttpErrorBody;
+    } catch {
+      body = undefined;
+    }
+    throw new ChatHttpError(response.status, body);
+  }
+
+  const parser = createSseParser();
+  const reader = response.body?.getReader();
+  if (!reader) return;
+
+  const decoder = new TextDecoder("utf-8");
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    for (const frame of parser.push(chunk)) {
+      onFrame(frame);
+    }
+  }
+  for (const frame of parser.flush()) {
+    onFrame(frame);
+  }
+}
