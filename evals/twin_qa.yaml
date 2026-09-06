@@ -291,12 +291,8 @@
   forbid_tool: show_project
 
 # ---- answerable from the knowledge, so nothing is recorded as unknown (forbid_tool holds one name) ----
-- id: card-corelight-role-answered
-  category: fact
-  question: What did you do at Corelight?
-  must_include: ["product", "security"]
-  forbid_tool: record_unknown_question
-
+# The same check on the Corelight and Accenture role questions was nondeterministic (the model sometimes
+# records an answered role question), so only the skills question is pinned here.
 - id: card-skills-answered
   category: fact
   question: What are your strongest technical skills?

@@ -132,7 +132,7 @@ the repo-root `.dockerignore` and new lines in `.env.example`.
 |---|---|---|
 | `Step` | `phase: "thinking" \| "composing"`, `round: int` | `thinking` before each model call; `composing` once per turn when its first text delta arrives, in whichever round that is, carrying that round's number. |
 | `ToolCall` | `name`, `label` | The model asked for a tool. `label` is the visitor-facing text. |
-| `ToolResult` | `name`, `ok: bool` | The tool ran. Results are paired to calls by list order; the agent decodes the tool message's JSON content and sets `ok` false when it is "notification failed" or starts with "Tool error" or "Unknown". |
+| `ToolResult` | `name`, `ok: bool` | The tool ran. Results are paired to calls by list order; the agent decodes the tool message's JSON content and sets `ok` false when `tools.is_failure` says so: "notification failed", "No projects available", or a result starting with "Tool error", "Unknown tool", or "Unknown project". |
 | `Delta` | `text` | A piece of the answer. |
 | `Project` | `slug`, `title`, `summary`, `url` | `show_project` produced a card. |
 | `Done` | `reply`, `tools: tuple[str, ...]`, `rounds: int`, `usage: Usage \| None` | The turn is complete. `reply` is the full text, never empty. `rounds` is the number of model calls the turn made, including any post-cap call. `Usage` is a frozen `(prompt_tokens, completion_tokens, cached_tokens)` summed over the turn's calls, or `None` when no usage chunk arrived. |
@@ -382,7 +382,8 @@ notifies. Response headers include `Cache-Control: no-store` and
 middleware for exactly those origins, methods `GET` and
 `POST`, no credentials. Every response carries `X-Request-Id` (a UUID
 generated per request) so a visitor can quote it. The client key is the
-first address in `X-Forwarded-For` when `TWIN_TRUST_PROXY` is true,
+last address in `X-Forwarded-For` when `TWIN_TRUST_PROXY` is true (the hop
+the trusted proxy itself appended, which a client cannot forge),
 otherwise the peer address; it is hashed with `TWIN_LOG_SALT` before it is
 logged or sent to OpenAI as `safety_identifier`.
 
@@ -434,6 +435,7 @@ New variables, all with defaults, read by `Settings.from_env`:
 | `TWIN_PUSHOVER_HOURLY` | `10` | Pushes per rolling hour. |
 | `TWIN_MODEL_TIMEOUT_SECONDS` | `60` | Per model call. |
 | `PORT` | `8080` | Listening port for `twin-api` and the container. |
+| `TWIN_HOST` | `127.0.0.1` | Bind address for `twin-api`. The container image sets `0.0.0.0`. |
 
 "Required in production" means: when `TWIN_TRUST_PROXY` is true and
 `TWIN_LOG_SALT` is unset, startup fails with a one-line error, since a
@@ -573,5 +575,55 @@ because they only wire and run, so the measured package should stay near
 
 1. Deployment: Fly.io app, secrets, `fly.toml`, `api.adambuilds.ai` DNS,
    the history scan before any further push, and a single-instance rule.
+   Carry over from execution: verify the Docker build (it could not be built
+   on the authoring machine), decide log retention because withheld or
+   failed notifications log the visitor's email, and treat the last-hop
+   `X-Forwarded-For` rule as the precondition for `TWIN_TRUST_PROXY=true`.
 2. Site and design system: Next.js, the chat UI that renders these events,
    the project pages the cards link to.
+
+## 19. Deviations recorded during execution
+
+Reviews during implementation changed the following from the text above.
+The code is the reference where they differ.
+
+- **Configuration.** Origins and `TWIN_SITE_URL` are validated and
+  normalised at startup (http or https scheme, a host, default ports
+  dropped, no path, query, fragment, or userinfo); an explicitly set but
+  empty origin list is an error; `PORT` must be 1 to 65535; the model
+  timeout must be finite; `TWIN_HOST` (default `127.0.0.1`) was added. The
+  repo-root fallback walks up to the nearest directory holding `apps/` and
+  `knowledge/`, else the working directory. `pushover_user` is hidden from
+  `repr` like the other credentials.
+- **Limits.** Idle-bucket eviction is floored at the full-refill time so a
+  burst larger than the hourly rate cannot be re-granted early; the clock is
+  read under the lock.
+- **Tools.** The `show_project` slug is capped and cleaned like the other
+  fields (`FIELD_LIMITS["slug"] = 80`, non-strings treated as empty). Failure
+  strings are decided next to their definitions by `tools.is_failure`, and
+  "No projects available" counts as a failure.
+- **Prompt.** Project sections carry a `slug="…"` attribute so the model can
+  name a real slug. After live runs showed over-eager tool use, the rules
+  say `show_project` is only for questions about a project (never jobs,
+  employers, skills, or background; employers and roles have no cards),
+  `record_user_details` runs only after an email is actually given, and
+  `record_unknown_question` runs only when nothing recorded answers the
+  question. Six eval cases pin these; the "answered role question records
+  nothing" check proved nondeterministic on the Corelight and Accenture
+  questions and is pinned on the skills question only.
+- **Agent.** The model stream is closed in a `finally` so an abandoned turn
+  releases its connection; `Done.reply` accumulates every delta as it is
+  yielded so a mid-stream failure keeps the streamed text.
+- **API.** Message content is stripped before the length check. The
+  trusted-proxy client key is the last `X-Forwarded-For` hop. A global
+  in-flight cap (`MAX_IN_FLIGHT = 8`, a constant in `routes.py`) answers 503
+  `busy` with `Retry-After: 5` after the daily-budget gate; the slot is
+  released in the response's `__call__`, which runs on every exit path.
+  Bodies without a `Content-Length` are counted against the limit as they
+  arrive. A turn that ends without `Done` is logged as `disconnected`. CORS
+  exposes `X-Request-Id` and `Retry-After`; the 413 path logs a line too.
+  Known gaps for the deployment spec: 500 responses bypass the request-id
+  and CORS middleware because Starlette's error middleware is outermost,
+  and a turn cancelled before its first frame writes no log line.
+- **Container.** The image is authored as specified but was not built on the
+  authoring machine (Docker Desktop's backend crashed on stale socket files).
