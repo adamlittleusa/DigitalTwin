@@ -34,7 +34,7 @@ already protect it from direct callers.
 | Deploys | GitHub Actions: tests on every pull request; on a push to `main`, tests then `fly deploy`, then a health smoke against the public URL. First deploy from Adam's laptop. |
 | Domain | `api.adambuilds.ai` as a CNAME at GoDaddy to `adambuilds-twin.fly.dev`; certificate issued and renewed by Fly. Apex and `www` untouched until the site spec. |
 | Secrets | `OPENAI_API_KEY`, `PUSHOVER_USER`, `PUSHOVER_TOKEN`, `TWIN_LOG_SALT` as Fly secrets. Everything else is plain config in `fly.toml`. |
-| Client address | When the proxy is trusted, prefer a configurable client-IP header (`Fly-Client-IP` on Fly), else the last `X-Forwarded-For` hop, else the peer. |
+| Client address | When the proxy is trusted, prefer a configurable client-IP header (`Fly-Client-IP` on Fly, set by Fly's proxy), else the last `X-Forwarded-For` hop, else the peer. |
 | Logs | Fly's built-in logs and their short retention. That is the retention decision the API spec deferred: withheld or failed notifications log the visitor's email, and it ages out within days. |
 | Spend | The app's 500-call day is the guard on the model. Adam sets a monthly usage limit on his OpenAI account as a manual step. |
 
@@ -44,6 +44,10 @@ already protect it from direct callers.
 - A web application firewall, geo-blocking, multiple regions, a second machine.
 - Metrics dashboards and paging. Fly's health check restarts a failing machine; that is the alerting.
 - Rewriting git history. The history scan in section 10 only reports.
+- Two gaps the API spec handed on, carried to the site spec unchanged: 500
+  responses bypass the request-id and CORS middleware, and a turn cancelled
+  before its first frame writes no log line. Neither affects a visitor of the
+  site as designed.
 
 ## 5. The Fly app
 
@@ -95,9 +99,10 @@ Notes on the choices:
 
 - The image already sets `KNOWLEDGE_DIR=/app/knowledge`, `TWIN_HOST=0.0.0.0`,
   and `PORT=8080`; Fly's `internal_port` matches.
-- `auto_stop_machines = "off"` with `min_machines_running = 1` keeps the one
-  machine up. `auto_start_machines` is left on so Fly restarts it after a
-  host event.
+- `auto_stop_machines = "off"` is what keeps the one machine up;
+  `min_machines_running` only matters when stopping is on and is kept as a
+  harmless statement of intent. `auto_start_machines` is left on so Fly
+  restarts the machine after a host event.
 - Fly's concurrency limits are per machine and count requests; they sit above
   the app's own `MAX_IN_FLIGHT = 8` for chats so health and project requests
   are never queued behind conversations.
@@ -138,9 +143,11 @@ secrets.
    hop, return that.
 3. Else the peer address, or `"unknown"` with a warning.
 
-Fly sets `Fly-Client-IP` on every request it proxies and strips any value a
-client sends, so on Fly the key cannot be forged. Off Fly the setting is
-blank and behaviour is unchanged. Tests cover the header present, the header
+Fly's proxy sets `Fly-Client-IP` on every request it forwards, and the
+machine is reachable only through that proxy, so on Fly the key reflects the
+real client. Off Fly the setting is blank and behaviour is unchanged. Nothing
+in the code or tests asserts what Fly does with a client-supplied copy of the
+header. Tests cover the header present, the header
 configured but absent (falls to the last hop), and the setting blank (header
 ignored even if present).
 
@@ -172,7 +179,7 @@ jobs:
         working-directory: apps/twin
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v10  # pin the current major when writing the plan
         with:
           python-version: "3.13"
       - run: uv sync --frozen
@@ -194,7 +201,8 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - name: Smoke the public URL
         run: |
-          expected=$(find knowledge -name '*.md' -not -iname 'readme.md' -not -path 'knowledge/raw/*' | wc -l)
+          # The same four locations the Dockerfile copies; a new top-level knowledge directory must be added to both.
+          expected=$(ls knowledge/*.md knowledge/roles/*.md knowledge/topics/*.md knowledge/projects/*.md | grep -v -i readme | wc -l)
           body=$(curl -fsS --retry 6 --retry-delay 10 --retry-all-errors https://api.adambuilds.ai/v1/health)
           echo "$body"
           echo "$body" | grep -q '"status":"ok"'
@@ -221,11 +229,12 @@ What it means:
 ## 9. First deploy, a runbook
 
 Manual steps are marked **Adam**; the rest are run in the plan with Adam
-present. Nothing prints a secret.
+present. The commands are Git Bash (the Bash tool on the laptop). Nothing
+prints a secret.
 
 1. **Adam**: confirm the Fly account has a payment method (Fly will not start a machine without one).
 2. Install `flyctl` on the laptop with Fly's PowerShell installer; **Adam** runs `fly auth login` (opens a browser).
-3. `fly apps create adambuilds-twin` (the name is global; if taken, pick `adambuilds-twin-api` and update `fly.toml` and the CNAME target below).
+3. `fly apps create adambuilds-twin --org personal` (the name is global; if taken, pick `adambuilds-twin-api` and update `fly.toml` and the CNAME target below).
 4. Import secrets from the laptop `.env` without printing them:
    `grep -E '^(OPENAI_API_KEY|PUSHOVER_USER|PUSHOVER_TOKEN)=' .env | fly secrets import --stage`
    then `fly secrets set --stage TWIN_LOG_SALT=$(python -c "import secrets; print(secrets.token_hex(32))")`.
@@ -240,7 +249,8 @@ present. Nothing prints a secret.
 
 ## 10. Safeguards inherited from the earlier specs
 
-- **Reviewed dates.** A unit test loads the committed `knowledge/` tree and
+- **Reviewed dates.** A new unit test, `apps/twin/tests/test_knowledge_reviewed.py`,
+  loads the committed `knowledge/` tree and
   fails if any file lacks a `reviewed` date, naming the files. It runs in CI,
   so an unreviewed file cannot merge. As of this spec
   `knowledge/projects/digital-twin.md` has no date; **Adam** reviews it and
