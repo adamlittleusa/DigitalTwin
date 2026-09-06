@@ -116,3 +116,39 @@ def test_empty_knowledge_omits_the_knowledge_heading() -> None:
 def test_role_instructions_bridge_third_to_first_person() -> None:
     assert "written about Adam in the third person" in pm.ROLE_INSTRUCTIONS
     assert "answer as Adam in the first person" in pm.ROLE_INSTRUCTIONS
+
+
+def test_rules_mention_show_project_once_per_reply() -> None:
+    assert "show_project" in pm.RULES
+    assert "at most once per reply" in pm.RULES
+
+
+def test_rules_forbid_cards_for_employers() -> None:
+    assert "employers and roles have no cards" in pm.RULES
+
+
+def test_rules_require_a_real_email_before_recording() -> None:
+    assert "only after they have actually given you an email address" in pm.RULES
+
+
+def test_rules_do_not_record_answered_questions() -> None:
+    assert "only when the sections above give you nothing to answer the question with" in pm.RULES
+    assert "answer it and record nothing" in pm.RULES
+
+
+def test_project_sections_carry_a_slug_attribute() -> None:
+    files = (
+        KnowledgeFile(
+            path=Path("projects/digital-twin.md"),
+            title="Digital twin",
+            kind="project",
+            body="Adam built a digital twin.",
+            period="2026-09 to present",
+        ),
+        kf("identity", "Identity", "Adam is a security leader."),
+    )
+    text = build_system_prompt(Knowledge(files=files))
+    assert '<section kind="project" title="Digital twin" slug="digital-twin">' in text
+    identity_start = text.index('<section kind="identity"')
+    identity_end = text.index(">", identity_start)
+    assert "slug=" not in text[identity_start:identity_end]

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
 [project]
 name = "twin"
 version = "0.1.0"
@@ -9,7 +13,15 @@ dependencies = [
     "python-frontmatter>=1.3",
     "pyyaml>=6.0",
     "requests>=2.32",
+    "fastapi>=0.141,<1",
+    "sse-starlette>=3.4,<4",
+    "uvicorn>=0.52,<1",
 ]
+
+[project.scripts]
+twin-chat = "twin.cli.chat:main"
+twin-smoke = "twin.cli.smoke:main"
+twin-api = "twin.cli.api:main"
 
 [dependency-groups]
 dev = [
@@ -17,14 +29,14 @@ dev = [
     "pytest-cov>=7.1,<8",
     "pytest-rerunfailures>=16.6,<17",
     "ruff>=0.12",
+    "httpx>=0.28,<1",
 ]
 
-[tool.uv]
-package = false
+[tool.hatch.build.targets.wheel]
+packages = ["twin"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 markers = ["integration: talks to the real model; needs OPENAI_API_KEY"]
 # A bare `pytest` never talks to the model; pass `-m integration` to run the paid evals.
 addopts = ["--strict-markers", "--strict-config", "-m", "not integration"]
@@ -32,6 +44,7 @@ addopts = ["--strict-markers", "--strict-config", "-m", "not integration"]
 [tool.coverage.run]
 source = ["twin"]
 branch = true
+omit = ["*/twin/cli/*", "*/twin/api/asgi.py"]
 
 [tool.coverage.report]
 fail_under = 80
