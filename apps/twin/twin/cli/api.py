@@ -23,5 +23,5 @@ def main() -> int:
     except ConfigError as exc:
         log.error("Cannot start: %s", exc)
         return 1
-    uvicorn.run("twin.api.asgi:app", host="0.0.0.0", port=settings.port, log_level="info")
+    uvicorn.run("twin.api.asgi:app", host=settings.host, port=settings.port, log_level="info")
     return 0

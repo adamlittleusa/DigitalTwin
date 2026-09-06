@@ -50,21 +50,68 @@ def hash_key(key: str, salt: str) -> str:
     return hashlib.sha256(f"{salt}:{key}".encode()).hexdigest()[:16]
 
 
+class _BodyTooLarge(Exception):
+    """Raised from receive once the bytes actually delivered exceed the limit."""
+
+
 class BodySizeLimitMiddleware:
-    """Rejects requests whose declared body exceeds the limit before any parsing."""
+    """Rejects requests whose body exceeds the limit, with the same 413 either way.
+
+    A Content-Length above the limit is refused before the app sees the request. A body that declares nothing
+    (chunked) is counted as it arrives: past the limit the app's receive raises _BodyTooLarge, and whatever the
+    app then sends in reply is dropped in favour of the 413. The counter, not the exception, decides, because
+    FastAPI turns any error raised while it reads the body into a 400 of its own, so the exception never reaches
+    this middleware. Once the app has already started its response there is nothing left to replace.
+    """
 
     def __init__(self, app: ASGIApp, limit: int) -> None:
         self.app = app
         self.limit = limit
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http":
-            declared = _content_length(scope)
-            if declared is not None and declared > self.limit:
-                message = f"The request body must be under {self.limit} bytes."
-                await _send_json(send, 413, {"code": "body_too_large", "message": message})
-                return
-        await self.app(scope, receive, send)
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        declared = _content_length(scope)
+        if declared is not None and declared > self.limit:
+            await self._reject(send)
+            return
+        received = 0
+        exceeded = False
+        started = False
+
+        async def counting_receive() -> Message:
+            nonlocal received, exceeded
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.limit:
+                    exceeded = True
+                    raise _BodyTooLarge
+            return message
+
+        async def guarded_send(message: Message) -> None:
+            nonlocal started
+            if exceeded and not started:
+                return  # the app is answering a body it never fully read; the 413 below replaces that answer
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, counting_receive, guarded_send)
+        except _BodyTooLarge:
+            pass
+        if not exceeded:
+            return
+        if started:
+            log.warning("Request body passed %d bytes after the response had started; leaving it to end.", self.limit)
+            return
+        await self._reject(send)
+
+    async def _reject(self, send: Send) -> None:
+        message = f"The request body must be under {self.limit} bytes."
+        await _send_json(send, 413, {"code": "body_too_large", "message": message})
 
 
 class RequestIdMiddleware:

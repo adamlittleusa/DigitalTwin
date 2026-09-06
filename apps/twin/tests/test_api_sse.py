@@ -7,14 +7,11 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
 from tests.fakes import ExplodingStream, text_stream, tool_stream
-from twin.api.app import create_app
+from tests.sse import Frames, stream_events, user
 from twin.events import AgentEvent, Step
 from twin.wiring import Runtime
-
-Frames = list[tuple[str, dict[str, Any]]]
 
 
 def turn_log_line(caplog: pytest.LogCaptureFixture) -> dict[str, Any]:
@@ -28,28 +25,6 @@ def turn_log_line(caplog: pytest.LogCaptureFixture) -> dict[str, Any]:
     turns = [line for line in parsed if isinstance(line, dict) and "outcome" in line]
     assert len(turns) == 1, turns
     return turns[0]
-
-
-def user(content: str) -> dict[str, str]:
-    return {"role": "user", "content": content}
-
-
-def stream_events(runtime: Runtime, messages: list[dict[str, str]]) -> Frames:
-    """POST a chat and parse the SSE frames into (event, data) pairs, ignoring comment lines."""
-    client = TestClient(create_app(runtime))
-    frames: Frames = []
-    with client.stream("POST", "/v1/chat", json={"messages": messages}) as response:
-        assert response.status_code == 200
-        assert response.headers["content-type"].startswith("text/event-stream")
-        assert response.headers["cache-control"] == "no-store"
-        event: str | None = None
-        for line in response.iter_lines():
-            if line.startswith("event:"):
-                event = line[len("event:") :].strip()
-            elif line.startswith("data:") and event is not None:
-                frames.append((event, json.loads(line[len("data:") :].strip())))
-                event = None
-    return frames
 
 
 def only(frames: Frames, *names: str) -> Frames:

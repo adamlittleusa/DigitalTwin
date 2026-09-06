@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from tests.test_api_sse import stream_events, user
+from tests.sse import stream_events, user
 from twin.tools import LoggingNotifier
 from twin.wiring import load_runtime
 

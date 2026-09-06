@@ -29,6 +29,7 @@ DEFAULT_KNOWLEDGE_DIR = REPO_ROOT / "knowledge"
 DEFAULT_ENV_FILE = REPO_ROOT / ".env"
 DEFAULT_ALLOWED_ORIGINS: tuple[str, ...] = ("http://localhost:3000",)
 DEFAULT_SITE_URL = "https://adambuilds.ai"
+DEFAULT_HOST = "127.0.0.1"
 REQUIRED_VARS: tuple[str, ...] = ("OPENAI_API_KEY",)
 _TRUE = frozenset({"1", "true", "yes", "on"})
 _FALSE = frozenset({"0", "false", "no", "off"})
@@ -138,6 +139,7 @@ class Settings:
     pushover_hourly: int = 10
     model_timeout_seconds: float = 60.0
     port: int = 8080
+    host: str = DEFAULT_HOST
 
     @property
     def pushover_enabled(self) -> bool:
@@ -174,6 +176,7 @@ class Settings:
             pushover_hourly=_int(source, "TWIN_PUSHOVER_HOURLY", 10),
             model_timeout_seconds=_positive_float(source, "TWIN_MODEL_TIMEOUT_SECONDS", 60.0),
             port=_int(source, "PORT", 8080, minimum=1, maximum=65535),
+            host=_read(source, "TWIN_HOST") or DEFAULT_HOST,
         )
 
 

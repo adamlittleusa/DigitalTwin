@@ -87,10 +87,12 @@ def test_from_env_reads_process_environment(monkeypatch: pytest.MonkeyPatch) -> 
 def test_whitespace_only_values_count_as_unset() -> None:
     with pytest.raises(ConfigError):
         Settings.from_env({"OPENAI_API_KEY": "   "})
-    settings = Settings.from_env({"OPENAI_API_KEY": " sk-test ", "TWIN_MODEL": "  ", "PUSHOVER_USER": " "})
+    env = {"OPENAI_API_KEY": " sk-test ", "TWIN_MODEL": "  ", "PUSHOVER_USER": " ", "TWIN_HOST": " "}
+    settings = Settings.from_env(env)
     assert settings.openai_api_key == "sk-test"
     assert settings.model == config.DEFAULT_MODEL
     assert settings.pushover_user is None
+    assert settings.host == "127.0.0.1"
 
 
 def test_knowledge_dir_expands_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -124,6 +126,7 @@ def test_api_settings_have_defaults() -> None:
     assert settings.pushover_hourly == 10
     assert settings.model_timeout_seconds == 60.0
     assert settings.port == 8080
+    assert settings.host == "127.0.0.1"
 
 
 def test_api_settings_are_parsed() -> None:
@@ -141,6 +144,7 @@ def test_api_settings_are_parsed() -> None:
             "TWIN_PUSHOVER_HOURLY": "4",
             "TWIN_MODEL_TIMEOUT_SECONDS": "12.5",
             "PORT": "9000",
+            "TWIN_HOST": "0.0.0.0",
         }
     )
     assert settings.allowed_origins == ("https://adambuilds.ai", "https://www.adambuilds.ai")
@@ -153,6 +157,7 @@ def test_api_settings_are_parsed() -> None:
     assert settings.pushover_hourly == 4
     assert settings.model_timeout_seconds == 12.5
     assert settings.port == 9000
+    assert settings.host == "0.0.0.0"
     assert "pepper" not in repr(settings)
 
 

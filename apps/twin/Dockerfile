@@ -6,6 +6,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /uvx /bin/
 ENV UV_LINK_MODE=copy \
     PYTHONUNBUFFERED=1 \
     KNOWLEDGE_DIR=/app/knowledge \
+    TWIN_HOST=0.0.0.0 \
     PORT=8080
 
 WORKDIR /app/apps/twin

@@ -7,12 +7,14 @@ import dataclasses
 import json
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 from fastapi import APIRouter, Request, Response
 from sse_starlette import EventSourceResponse
+from starlette.datastructures import State
+from starlette.types import Receive, Scope, Send
 
 from twin.api.schemas import RESTING_MESSAGE, ChatRequest, error_response
 from twin.api.security import client_key, hash_key
@@ -40,6 +42,29 @@ def _version() -> str:
 
 def _runtime(request: Request) -> Runtime:
     return request.app.state.runtime
+
+
+def _release_slot(state: State) -> None:
+    state.in_flight -= 1
+
+
+class _TurnResponse(EventSourceResponse):
+    """The chat response: an SSE stream that gives the turn's in-flight slot back when it ends, however it ends.
+
+    sse-starlette cancels its task group as soon as the first send fails, before the event generator has been
+    entered, so a finally inside the generator is not enough: a visitor gone before the first frame would leave
+    the slot taken for good. The response's own finally runs on every way out.
+    """
+
+    def __init__(self, content: AsyncIterator[dict[str, str]], *, release: Callable[[], None], **kwargs: Any) -> None:
+        super().__init__(content, **kwargs)
+        self._release = release
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            self._release()
 
 
 @router.get("/health")
@@ -143,14 +168,14 @@ async def chat(request: Request, body: ChatRequest) -> Response:
                 outcome = "disconnected"
                 raise
             finally:
-                # Only reached once the response below has been returned and the generator is iterated,
-                # so this and the except below can never both fire for the same request.
-                state.in_flight -= 1
                 if done is None and outcome == "ok":  # the agent always ends with Done; none means the consumer left
                     outcome = "disconnected"
                 _log_turn(request_id, body, hashed, done, first_delta_ms, started, outcome)
 
-        return EventSourceResponse(events(), ping=HEARTBEAT_SECONDS, headers={"Cache-Control": "no-store"})
+        headers = {"Cache-Control": "no-store"}
+        return _TurnResponse(events(), release=lambda: _release_slot(state), ping=HEARTBEAT_SECONDS, headers=headers)
     except Exception:
-        state.in_flight -= 1
+        # The response releases the slot once it has run; this is the only other way out, taken only when that
+        # response was never built, so the two can never both fire for one request.
+        _release_slot(state)
         raise

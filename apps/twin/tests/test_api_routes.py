@@ -14,7 +14,7 @@ from starlette.types import Receive, Scope, Send
 from twin.api.app import create_app
 from twin.api.routes import MAX_IN_FLIGHT
 from twin.api.schemas import MAX_BODY_BYTES, MAX_MESSAGE_CHARS
-from twin.api.security import RequestIdMiddleware, client_key
+from twin.api.security import BodySizeLimitMiddleware, RequestIdMiddleware, client_key
 from twin.wiring import Runtime
 
 JSON = {"Content-Type": "application/json"}
@@ -124,6 +124,35 @@ def test_body_too_large_is_413(make_runtime: Callable[..., Runtime]) -> None:
     response = client_for(make_runtime()).post("/v1/chat", content=big, headers=JSON)
     assert response.status_code == 413
     assert response.json()["code"] == "body_too_large"
+
+
+def test_chunked_body_over_the_limit_is_413(make_runtime: Callable[..., Runtime]) -> None:
+    """An iterator body is sent chunked, without a Content-Length: the bytes are counted as they arrive."""
+    runtime = make_runtime()
+    response = client_for(runtime).post("/v1/chat", content=iter([b"x" * 1024] * 40), headers=JSON)
+    assert response.status_code == 413
+    assert response.json()["code"] == "body_too_large"
+    assert runtime.client.calls == []
+
+
+def test_chunked_body_under_the_limit_is_processed(make_runtime: Callable[..., Runtime]) -> None:
+    payload = json.dumps({"messages": [user("hi")]}).encode()
+    pieces = iter([payload[:10], payload[10:]])
+    with client_for(make_runtime()).stream("POST", "/v1/chat", content=pieces, headers=JSON) as response:
+        assert response.status_code == 200
+        response.read()
+
+
+def test_body_limit_leaves_a_response_that_already_started_alone() -> None:
+    """An app that answers before reading the body keeps its answer: no second response start is sent."""
+
+    async def eager(scope: Scope, receive: Receive, send: Send) -> None:
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await receive()  # raises past the limit; the body message below is never sent
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    response = TestClient(BodySizeLimitMiddleware(eager, limit=4)).post("/", content=iter([b"x" * 10]))
+    assert response.status_code == 200
 
 
 def test_rate_limit_is_429_with_retry_after(make_runtime: Callable[..., Runtime]) -> None:

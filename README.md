@@ -8,7 +8,7 @@ answers questions about Adam's career in his voice.
 
 | Path | What |
 |---|---|
-| `apps/twin/` | The twin: Python package and tests. `twin/cli/` holds the console commands; `twin/api/` the HTTP service (added in the next task). |
+| `apps/twin/` | The twin: Python package and tests. `twin/cli/` holds the console commands; `twin/api/` the HTTP service. |
 | `apps/web/` | The site. Not started yet. |
 | `knowledge/` | The twin's knowledge of Adam, as reviewed markdown. See `knowledge/README.md`. |
 | `evals/` | Question sets the twin must answer correctly. |
@@ -34,6 +34,21 @@ and streams Server-Sent Events: `step`, `tool`, `tool_result`, `delta`,
 `/v1/projects` are plain JSON. Limits and origins are configured through
 the `TWIN_*` variables in `.env.example`. See
 `docs/superpowers/specs/2026-09-05-twin-api-design.md`.
+
+The server binds `127.0.0.1` by default; set `TWIN_HOST` (for example
+`0.0.0.0` inside a container) to listen on another address. The cap on
+concurrent turns is the `MAX_IN_FLIGHT` constant in `twin/api/routes.py`,
+not an environment variable.
+
+### Container
+
+Build from the repo root. The image holds the package and only the
+reviewed knowledge, never `knowledge/raw`. Values in `--env-file` override
+the image's own `TWIN_HOST` and `KNOWLEDGE_DIR`, so both are pinned again
+with `-e`.
+
+    docker build -f apps/twin/Dockerfile -t twin-api .
+    docker run --rm --env-file .env -e KNOWLEDGE_DIR=/app/knowledge -e TWIN_HOST=0.0.0.0 -p 8080:8080 twin-api
 
 ## Test
 
