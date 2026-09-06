@@ -191,3 +191,25 @@ describe("parseFrame", () => {
     warn.mockRestore();
   });
 });
+
+describe("streamChat: Retry-After header", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("exposes the Retry-After header on the ChatHttpError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        headers: new Headers({ "Retry-After": "5" }),
+        json: async () => ({ code: "busy", message: "Give me a moment." }),
+      }),
+    );
+    await expect(streamChat("https://api.adambuilds.ai", [], () => {})).rejects.toMatchObject({
+      status: 503,
+      retryAfterHeader: 5,
+    });
+  });
+});

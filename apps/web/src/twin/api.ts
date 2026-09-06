@@ -9,12 +9,15 @@ export type ChatHttpErrorBody = {
 export class ChatHttpError extends Error {
   status: number;
   body?: ChatHttpErrorBody;
+  /** Seconds from the `Retry-After` header, when the server sent one. */
+  retryAfterHeader?: number;
 
-  constructor(status: number, body?: ChatHttpErrorBody) {
+  constructor(status: number, body?: ChatHttpErrorBody, retryAfterHeader?: number) {
     super(body?.message ?? `twin API responded with ${status}`);
     this.name = "ChatHttpError";
     this.status = status;
     this.body = body;
+    this.retryAfterHeader = retryAfterHeader;
   }
 }
 
@@ -42,6 +45,13 @@ export async function fetchExamples(base: string): Promise<string[]> {
   return (await response.json()) as string[];
 }
 
+function retryAfterSeconds(response: Response): number | undefined {
+  const header = response.headers?.get("Retry-After");
+  if (!header) return undefined;
+  const seconds = Number(header);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
+}
+
 export type ChatMessage = { role: "user" | "assistant"; text: string };
 
 export async function streamChat(
@@ -64,7 +74,7 @@ export async function streamChat(
     } catch {
       body = undefined;
     }
-    throw new ChatHttpError(response.status, body);
+    throw new ChatHttpError(response.status, body, retryAfterSeconds(response));
   }
 
   const parser = createSseParser();

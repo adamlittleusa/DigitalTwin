@@ -379,3 +379,39 @@ describe("httpErrorText", () => {
     });
   });
 });
+
+describe("reducer: retry", () => {
+  it("reopens a pending reply without appending a user turn", () => {
+    const failed: TwinState = {
+      ...initialState,
+      messages: [{ role: "user", text: "hi" }],
+      error: { text: "Couldn't reach the twin.", retryable: true },
+    };
+    const next = reducer(failed, { type: "retry" });
+    expect(next.messages).toEqual([{ role: "user", text: "hi" }]);
+    expect(next.pending).toEqual({ text: "", cards: [] });
+    expect(next.error).toBeNull();
+  });
+
+  it("is a no-op when the last message is not from the user", () => {
+    const state: TwinState = {
+      ...initialState,
+      messages: [{ role: "assistant", text: "hello" }],
+    };
+    expect(reducer(state, { type: "retry" })).toBe(state);
+  });
+});
+
+describe("reducer: hydrate", () => {
+  it("restores messages and open, leaving transient fields untouched", () => {
+    const next = reducer(initialState, {
+      type: "hydrate",
+      messages: [{ role: "user", text: "hi" }],
+      open: true,
+    });
+    expect(next.messages).toHaveLength(1);
+    expect(next.open).toBe(true);
+    expect(next.pending).toBeNull();
+    expect(next.error).toBeNull();
+  });
+});

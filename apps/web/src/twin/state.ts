@@ -99,7 +99,9 @@ export type TwinAction =
   | { type: "fail"; text: string; retryable: boolean; retryAfter?: number; cap?: boolean }
   | { type: "timeout" }
   | { type: "reset" }
-  | { type: "capReached" };
+  | { type: "capReached" }
+  | { type: "retry" }
+  | { type: "hydrate"; messages: Message[]; open: boolean };
 
 /** Number of user turns currently in the transcript. */
 export function userTurns(state: TwinState): number {
@@ -279,6 +281,18 @@ export function reducer(state: TwinState, action: TwinAction): TwinState {
 
     case "capReached":
       return { ...state, capReached: true };
+
+    // Resend the last user message (still in the transcript after a
+    // failure): open a new pending reply without appending a user turn.
+    case "retry": {
+      const last = state.messages[state.messages.length - 1];
+      if (!last || last.role !== "user") return state;
+      return { ...state, pending: { text: "", cards: [] }, status: null, error: null };
+    }
+
+    // Restore the persisted subset after mount; transient fields stay fresh.
+    case "hydrate":
+      return { ...state, messages: action.messages, open: action.open };
 
     default:
       return state;
