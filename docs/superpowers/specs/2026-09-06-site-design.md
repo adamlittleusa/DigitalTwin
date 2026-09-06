@@ -62,7 +62,7 @@ site afterwards.
 |---|---|
 | `/` | Gallery. Toggle "Architecture" / "Use cases"; `/?view=use-cases` selects the second so it is linkable. One line of identity above the tiles: name, what he builds, a link to About. |
 | `/architecture/[pattern]` | One of six. Title, the pattern explained in three to five short paragraphs in Adam's voice, its diagram large, then the projects in it as cards, or the one-line empty state. |
-| `/use-cases/[slug]` | Derived. Title and description come from the projects that declare the slug (the first project's `useCase.description` wins; the build fails if two projects describe the same slug differently). Then the projects. |
+| `/use-cases/[slug]` | Derived. Projects sharing a slug are ordered by `date` ascending, then slug; the label and description come from the first, and the build fails if any project in the group gives a different label or description. Then the projects. |
 | `/projects/[slug]` | Story: what it is, why it exists, how it is built (with the pattern diagram and a link to the pattern page), what it does, status, "Try it" and "Source" links. |
 | `/about` | The career arc in reader's prose (from `knowledge/career-arc.md` and the roles, rewritten, reviewed by Adam), a photo if Adam supplies one, a LinkedIn link, and "ask the twin" (hidden until 4b). |
 | `/writing` | List of posts by date; empty state text when none. |
@@ -86,7 +86,7 @@ useCase:
   slug: expert-front-door
   label: An always-on expert that answers in your voice
   description: A customer-facing agent that knows one person's or one company's material deeply, answers within stated boundaries, and hands the conversation to a human when it should.
-status: live                          # live | building | retired
+status: building                      # live | building | retired; the twin flips to live when 4b ships the panel
 date: 2026-09-06
 tryUrl: https://adambuilds.ai         # optional; for the twin it is the site itself (the panel)
 repoUrl: https://github.com/adamlittleusa/DigitalTwin
@@ -171,8 +171,9 @@ hard-coded colours or sizes elsewhere.
 ## 9. Content at launch
 
 - Project: the twin, under `autonomous-agent`, use case as in section 6,
-  story written from `knowledge/projects/digital-twin.md` for readers,
-  reviewed by Adam.
+  status `building` (the API is live but a visitor cannot try it on the site
+  until 4b; 4b's plan flips it to `live`), story written from
+  `knowledge/projects/digital-twin.md` for readers, reviewed by Adam.
 - The six pattern pages with their long descriptions and diagrams; five say
   "No projects here yet."
 - About: the arc, from `knowledge/career-arc.md` and the role files, in
