@@ -1,20 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
+
+const USE_CASES_VIEW = "use-cases";
+const VIEW_PARAM = "view";
 
 type NavLinkProps = {
   href: string;
   children: ReactNode;
 };
 
+/**
+ * Current-page detection. The gallery at "/" has two views selected by
+ * `?view=`: "Architecture" is current on "/" without the use-cases view,
+ * "Use cases" only with it. Every other link matches on pathname alone.
+ */
+function isCurrent(href: string, pathname: string, view: string | null): boolean {
+  const [hrefPath, hrefQuery] = href.split("?");
+  if (hrefPath !== pathname) return false;
+  if (hrefPath !== "/") return true;
+  const hrefView = new URLSearchParams(hrefQuery ?? "").get(VIEW_PARAM);
+  const wantsUseCases = hrefView === USE_CASES_VIEW;
+  const hasUseCases = view === USE_CASES_VIEW;
+  return wantsUseCases === hasUseCases;
+}
+
 export function NavLink({ href, children }: NavLinkProps) {
   const pathname = usePathname();
-  const isActive = pathname === href;
+  const view = useSearchParams().get(VIEW_PARAM);
+  const current = isCurrent(href, pathname, view);
 
   return (
-    <Link href={href} aria-current={isActive ? "page" : undefined}>
+    <Link href={href} aria-current={current ? "page" : undefined}>
       {children}
     </Link>
   );

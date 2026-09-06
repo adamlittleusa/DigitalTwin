@@ -38,11 +38,11 @@ export const PATTERNS: Record<PatternKey, Pattern> = {
     name: "Routing",
     oneLine: "Classify the input, send it to the specialist path that fits.",
     long: [
-      "Routing puts a classifier in front of a set of specialised handlers. The first call decides what kind of input this is, and the input goes to a prompt, a model, or a whole workflow built for that kind. Nothing downstream has to cope with every case at once.",
-      "I reach for it when the inputs fall into distinct categories that want different handling and a single prompt is getting worse at all of them as it tries to cover each. Support questions that split into refunds, technical problems, and general enquiries are the textbook example. Sending easy questions to a smaller, faster model and hard ones to a larger one is another.",
+      "Routing puts a classifier in front of a set of specialized handlers. The first call decides what kind of input this is, and the input goes to a prompt, a model, or a whole workflow built for that kind. Nothing downstream has to cope with every case at once.",
+      "I reach for it when the inputs fall into distinct categories that want different handling and a single prompt is getting worse at all of them as it tries to cover each. Support questions that split into refunds, technical problems, and general inquiries are the textbook example. Sending easy questions to a smaller, faster model and hard ones to a larger one is another.",
       "The cost is the classification step itself, both the extra latency and the fact that it can be wrong. A misroute is often worse than a mediocre generic answer, because the specialist path was never built to notice it has the wrong kind of input.",
       "It goes wrong when the categories are fuzzy or the routing rules drift from what the handlers actually expect. I have seen routers with twelve categories where nobody could say what separated four of them. That is not routing; that is a lookup table nobody maintains.",
-      "In a good router I look for a small set of categories with a clear default, a classifier I can evaluate against labelled examples, and handlers that fail loudly when the input does not fit. If I cannot measure the routing accuracy separately from the answer quality, I cannot tell which half is broken.",
+      "In a good router I look for a small set of categories with a clear default, a classifier I can evaluate against labeled examples, and handlers that fail loudly when the input does not fit. If I cannot measure the routing accuracy separately from the answer quality, I cannot tell which half is broken.",
     ],
   },
   parallelization: {
@@ -50,7 +50,7 @@ export const PATTERNS: Record<PatternKey, Pattern> = {
     name: "Parallelization",
     oneLine: "Run independent pieces at once, then combine or vote.",
     long: [
-      "Parallelization runs several model calls at the same time and combines what comes back. There are two flavours. Sectioning splits a task into independent pieces and stitches the results together. Voting runs the same task several times and takes the consensus, or the strictest answer, depending on what the task needs.",
+      "Parallelization runs several model calls at the same time and combines what comes back. There are two flavors. Sectioning splits a task into independent pieces and stitches the results together. Voting runs the same task several times and takes the consensus, or the strictest answer, depending on what the task needs.",
       "I reach for sectioning when the pieces genuinely do not depend on each other, such as screening a request for policy problems in one call while answering it in another. I reach for voting when I care more about confidence than speed, such as reviewing code for vulnerabilities where three independent passes catch more than one careful one.",
       "The cost is tokens. Five parallel calls are five calls, and the combine step is one more. It is fast in wall-clock time, which is why it is tempting, but it is not cheap, and the combining logic has to handle disagreement, partial failure, and outputs that do not line up the way I expected.",
       "It goes wrong when the pieces were not as independent as I thought. If the summary of section two needs to know what section one said, running them at once produces a result that reads like it was written by two people who never met. Voting goes wrong when the voters share a bias, because agreement then means nothing.",
@@ -67,7 +67,7 @@ export const PATTERNS: Record<PatternKey, Pattern> = {
       "I reach for it when I cannot predict the shape of the work. A change that touches an unknown number of files, or a research question where the sources to consult depend on what the first pass turns up, both want an orchestrator. If I could list the subtasks ahead of time, I would use a chain or a parallel fan-out instead.",
       "The cost is that the orchestrator is now a planner, and planning is where models are least reliable. It can over-decompose, under-decompose, or hand a worker a subtask with too little context to do it well. Every worker call is a separate context window, so the orchestrator has to be explicit about what each one needs to know.",
       "It goes wrong when the orchestrator and the workers disagree about what done looks like. A worker returns something plausible, the orchestrator accepts it without checking, and the assembled result is confidently wrong in a way no single call would have been. The synthesis step is where I have seen the most quiet failures.",
-      "In a good one I look for a worker interface that is narrow and typed, so the orchestrator cannot hand over ambiguous work, and for the orchestrator's plan to be logged as a first-class artefact I can read afterwards. If I cannot see the plan, I cannot tell whether a bad result came from bad planning or bad execution.",
+      "In a good one I look for a worker interface that is narrow and typed, so the orchestrator cannot hand over ambiguous work, and for the orchestrator's plan to be logged as a first-class artifact I can read afterwards. If I cannot see the plan, I cannot tell whether a bad result came from bad planning or bad execution.",
     ],
   },
   "evaluator-optimizer": {

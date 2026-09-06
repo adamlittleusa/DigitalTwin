@@ -1,5 +1,37 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { NavLink } from "./NavLink";
+
+const NAV_ITEMS = [
+  { href: "/", label: "Architecture" },
+  { href: "/?view=use-cases", label: "Use cases" },
+  { href: "/about", label: "About" },
+  { href: "/writing", label: "Writing" },
+] as const;
+
+function NavItems() {
+  return (
+    <>
+      {NAV_ITEMS.map((item) => (
+        <NavLink key={item.href} href={item.href}>
+          {item.label}
+        </NavLink>
+      ))}
+    </>
+  );
+}
+
+function StaticNavItems() {
+  return (
+    <>
+      {NAV_ITEMS.map((item) => (
+        <Link key={item.href} href={item.href}>
+          {item.label}
+        </Link>
+      ))}
+    </>
+  );
+}
 
 export function SiteHeader() {
   return (
@@ -9,10 +41,10 @@ export function SiteHeader() {
           Adam Little
         </Link>
         <nav className="site-header__nav" aria-label="Primary">
-          <NavLink href="/">Architecture</NavLink>
-          <Link href="/?view=use-cases">Use cases</Link>
-          <NavLink href="/about">About</NavLink>
-          <NavLink href="/writing">Writing</NavLink>
+          {/* useSearchParams in NavLink needs a Suspense boundary on static pages. */}
+          <Suspense fallback={<StaticNavItems />}>
+            <NavItems />
+          </Suspense>
         </nav>
       </div>
     </header>

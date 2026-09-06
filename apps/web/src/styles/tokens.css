@@ -6,7 +6,7 @@
   --line-strong: rgba(255, 255, 255, 0.16);
   --text: #ececf1;
   --text-2: #a3a7b3;
-  --text-3: #6b7080;
+  --text-3: #7b8194; /* about 5:1 against --bg, passes AA for small text */
   --accent: #9ec1ff;
   --accent-dim: rgba(158, 193, 255, 0.18);
   --grid: rgba(255, 255, 255, 0.03);
