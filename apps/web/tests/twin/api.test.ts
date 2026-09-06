@@ -104,7 +104,7 @@ describe("streamChat", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ messages: [{ role: "user", text: "hello" }] }),
+        body: JSON.stringify({ messages: [{ role: "user", content: "hello" }] }),
       }),
     );
     expect(frames).toEqual([
@@ -112,6 +112,35 @@ describe("streamChat", () => {
       { event: "delta", data: "hi" },
       { event: "done", data: '{"reply":"hi"}' },
     ]);
+  });
+
+  it("serialises messages as { role, content } with no extra fields", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, body: streamOf([]) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamChat(
+      "https://api.adambuilds.ai",
+      [
+        { role: "user", text: "first" },
+        { role: "assistant", text: "reply" },
+        { role: "user", text: "second" },
+      ],
+      () => {},
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      messages: Record<string, unknown>[];
+    };
+    expect(body).toEqual({
+      messages: [
+        { role: "user", content: "first" },
+        { role: "assistant", content: "reply" },
+        { role: "user", content: "second" },
+      ],
+    });
+    for (const message of body.messages) {
+      expect(Object.keys(message).sort()).toEqual(["content", "role"]);
+    }
   });
 
   it("passes the abort signal through to fetch", async () => {

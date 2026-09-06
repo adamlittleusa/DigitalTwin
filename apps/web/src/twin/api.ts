@@ -54,6 +54,13 @@ function retryAfterSeconds(response: Response): number | undefined {
 
 export type ChatMessage = { role: "user" | "assistant"; text: string };
 
+/** The API's wire shape: `content`, not `text`, and nothing else (unknown fields are rejected). */
+type WireMessage = { role: ChatMessage["role"]; content: string };
+
+function toWire(messages: ChatMessage[]): WireMessage[] {
+  return messages.map(({ role, text }) => ({ role, content: text }));
+}
+
 export async function streamChat(
   base: string,
   messages: ChatMessage[],
@@ -63,7 +70,7 @@ export async function streamChat(
   const response = await fetch(`${base}/v1/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages: toWire(messages) }),
     signal,
   });
 
