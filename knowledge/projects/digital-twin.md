@@ -4,6 +4,7 @@ kind: project
 period: 2026-09 to present
 tags: [ai-agents, portfolio, openai, python]
 public: true
+reviewed: 2026-09-06
 ---
 
 ## What it is
