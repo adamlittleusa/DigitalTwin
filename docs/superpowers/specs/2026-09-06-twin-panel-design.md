@@ -29,7 +29,7 @@ live.
 page. Click, or the keyboard, opens the panel; Escape or the close button
 closes it. Open state is remembered in `sessionStorage`.
 
-**Panel.** A `dialog` element, 420 px wide on desktop docked to the right
+**Panel.** A dialog-role panel (a `div` with `role="dialog"` and `aria-modal`, not the native element, whose top-layer centring does not suit a docked panel), 420 px wide on desktop docked to the right
 edge, full screen under 700 px. Header: "Adam's twin" and a close button.
 Body: greeting line, example chips (until the first message is sent), the
 transcript, the pending reply with its status line, then the input row
@@ -60,8 +60,9 @@ parser (event and data lines, blank-line delimited, comments ignored).
 |---|---|
 | Ninth user turn | Input replaced by "That's a full conversation. Start a new one?" with a button that clears the transcript. |
 | HTTP 429 | "Too many questions for the moment. Try again in N seconds." using the body's `retry_after`; the input re-enables after N seconds. |
-| HTTP 503 `resting` or `busy` | The body's `message` verbatim. |
-| HTTP 400 or 413 | "That message didn't go through" (a client bug; log it to the console). |
+| HTTP 503 `resting` or `busy` | The body's `message` verbatim; for `busy` the input re-enables after the `Retry-After` header's seconds (5). |
+| HTTP 413 `conversation_too_long` | The body's `message` verbatim, and the same start-over control as the client-side cap (the server's cap wins if the two ever differ). |
+| HTTP 400, or 413 with any other code | "That message didn't go through" (a client bug; log it to the console). |
 | HTTP 500 or network failure | "Couldn't reach the twin." with a Retry button that resends the same message. |
 | No `done` within 90 s | The turn ends with "The twin lost the thread. Try again." |
 | Off-domain host | Input disabled; "The twin only answers on adambuilds.ai." |
