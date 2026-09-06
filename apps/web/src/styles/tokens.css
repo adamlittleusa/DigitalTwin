@@ -1,0 +1,26 @@
+:root {
+  --bg: #0b0c0f;
+  --surface: #111318;
+  --surface-raised: #15181f;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --text: #ececf1;
+  --text-2: #a3a7b3;
+  --text-3: #7b8194; /* about 5:1 against --bg, passes AA for small text */
+  --accent: #9ec1ff;
+  --accent-dim: rgba(158, 193, 255, 0.18);
+  --grid: rgba(255, 255, 255, 0.03);
+
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --fs-xs: 13px; --fs-sm: 15px; --fs-md: 17px; --fs-lg: 22px;
+  --fs-xl: 28px; --fs-2xl: 40px; --fs-3xl: 56px;
+  --lh-body: 1.5; --lh-display: 1.1;
+
+  --space-1: 8px; --space-2: 16px; --space-3: 24px; --space-4: 32px;
+  --space-5: 48px; --space-6: 64px; --space-7: 96px;
+  --gutter: 24px; --content-max: 1120px; --radius: 12px;
+  --ease: cubic-bezier(0.2, 0, 0, 1); --t-fast: 160ms; --t-fade: 200ms; --t-draw: 600ms;
+  --draw-dash: 400; /* stroke-dasharray/offset for diagram draw-in */
+}
+@media (min-width: 900px) { :root { --gutter: 48px; } }

@@ -9,7 +9,7 @@ answers questions about Adam's career in his voice.
 | Path | What |
 |---|---|
 | `apps/twin/` | The twin: Python package and tests. `twin/cli/` holds the console commands; `twin/api/` the HTTP service. |
-| `apps/web/` | The site. Not started yet. |
+| `apps/web/` | The site (Next.js). See `apps/web/README.md`. |
 | `knowledge/` | The twin's knowledge of Adam, as reviewed markdown. See `knowledge/README.md`. |
 | `evals/` | Question sets the twin must answer correctly. |
 | `docs/superpowers/` | Design specs and implementation plans. |

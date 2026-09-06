@@ -1,0 +1,35 @@
+---
+title: Digital twin
+slug: digital-twin
+summary: An agent that answers questions about my career, in my voice, and knows when to hand off to me.
+architecture: autonomous-agent
+useCase:
+  slug: expert-front-door
+  label: An always-on expert that answers in your voice
+  description: A customer-facing agent that knows one person's or one company's material deeply, answers within stated boundaries, and hands the conversation to a human when it should.
+status: building
+date: 2026-09-06
+repoUrl: https://github.com/adamlittleusa/DigitalTwin
+---
+
+## What it is
+
+A conversational agent that represents me on this site. Visitors ask about my career, my background, the way I work, and the projects here, and the twin answers in my voice from a knowledge base I wrote myself. It is the first project in the portfolio, and once the chat panel ships it will be the agent you are talking to.
+
+## Why it exists
+
+I wanted one project that shows agent design end to end, not a demo. That means tool use, a knowledge base built from my own account of my career, evals that catch invention and drift, and the security thinking behind what an agent should and should not know about the person it speaks for. A twin is a good test because the failure modes are personal: it can make things up about me, say things I would not say, or answer questions I have chosen not to answer here.
+
+## How it is built
+
+<PatternDiagram pattern="autonomous-agent" size="page" />
+
+The twin is an [autonomous agent](/architecture/autonomous-agent): a model in a loop with a small set of tools. The knowledge base is a folder of markdown files, loaded whole into the system prompt so the agent always has the full picture rather than a retrieved slice of it. Each turn, the model can record a visitor's email for follow-up, log a question it could not answer, flag a question I should handle myself, or show a project card, and then it composes a reply.
+
+The API is a Python service on a single always-on machine. It is stateless: the browser holds the transcript and sends it every turn. Replies stream over Server-Sent Events as typed events, so the panel can show the loop's steps, tool calls, text, and project cards as they happen. Tight limits on messages per visitor, turns per conversation, and model calls per day keep a public endpoint from becoming an open bill.
+
+A suite of evals runs against the live model and checks three things: facts against the knowledge, boundaries against the questions I decline, and voice against how I actually talk. The evals are what let me change the prompt without wondering what else changed.
+
+## What it does
+
+Ask it how I got from human intelligence work into cybersecurity, what I built at Recorded Future, or what I think an agent needs before it earns trust, and it answers as I would. Ask about something outside what I have written down and it says so, records the gap so I can fill it, and offers what it does know. Ask about something I keep for live conversation, and it says that too, and offers to take your email so I can follow up in person. Knowing when to stop is the point.
