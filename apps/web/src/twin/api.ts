@@ -40,9 +40,18 @@ export function apiBase(host: string = window.location.hostname): string | null 
   return null;
 }
 
+/**
+ * `GET /v1/examples` returns `{ "questions": [...] }`. Anything else (a
+ * failed response, a different shape) yields no chips rather than a throw.
+ */
 export async function fetchExamples(base: string): Promise<string[]> {
   const response = await fetch(`${base}/v1/examples`);
-  return (await response.json()) as string[];
+  if (!response.ok) return [];
+  const body: unknown = await response.json();
+  if (body === null || typeof body !== "object") return [];
+  const { questions } = body as { questions?: unknown };
+  if (!Array.isArray(questions)) return [];
+  return questions.every((q) => typeof q === "string") ? (questions as string[]) : [];
 }
 
 function retryAfterSeconds(response: Response): number | undefined {

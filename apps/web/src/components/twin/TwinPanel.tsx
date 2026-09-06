@@ -7,6 +7,7 @@ import type { TwinState } from "@/twin/state";
 
 export const GREETING = "Ask me about Adam's work. I answer as him.";
 export const OFF_DOMAIN_NOTICE = "The twin only answers on adambuilds.ai.";
+export const TWIN_PANEL_ID = "twin-panel";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -16,6 +17,8 @@ interface TwinPanelProps {
   examples: string[];
   offDomain: boolean;
   composerDisabled: boolean;
+  /** A `Retry-After` cooldown is running; sending and retrying wait for it. */
+  coolingDown: boolean;
   atCap: boolean;
   onClose: () => void;
   onSend: (text: string) => void;
@@ -26,7 +29,7 @@ interface TwinPanelProps {
 function ExampleChips({ examples, onPick }: { examples: string[]; onPick: (text: string) => void }) {
   if (examples.length === 0) return null;
   return (
-    <div className="twin-chips" aria-label="Example questions">
+    <div className="twin-chips" role="group" aria-label="Example questions">
       {examples.map((example) => (
         <button
           key={example}
@@ -46,6 +49,7 @@ export function TwinPanel({
   examples,
   offDomain,
   composerDisabled,
+  coolingDown,
   atCap,
   onClose,
   onSend,
@@ -97,6 +101,7 @@ export function TwinPanel({
   return (
     <div
       ref={panelRef}
+      id={TWIN_PANEL_ID}
       className="twin-panel"
       role="dialog"
       aria-modal="true"
@@ -121,6 +126,7 @@ export function TwinPanel({
           pending={state.pending}
           status={state.status}
           error={state.error}
+          retryDisabled={coolingDown}
           onRetry={onRetry}
         />
       </div>

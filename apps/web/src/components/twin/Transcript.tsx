@@ -9,6 +9,8 @@ interface TranscriptProps {
   pending: PendingReply | null;
   status: Status;
   error: ChatError | null;
+  /** Hide Retry while a cooldown runs; the composer is disabled for the same window. */
+  retryDisabled: boolean;
   onRetry: () => void;
 }
 
@@ -41,7 +43,7 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
-function PendingBubble({ pending, status }: { pending: PendingReply; status: Status }) {
+function PendingBubble({ pending }: { pending: PendingReply }) {
   const parts = paragraphs(pending.text);
   return (
     <div className="twin-message twin-message--assistant twin-message--pending">
@@ -64,18 +66,21 @@ function PendingBubble({ pending, status }: { pending: PendingReply; status: Sta
         ))
       )}
       <Cards cards={pending.cards} />
-      <p className="twin-status mono" aria-live="polite" aria-atomic="true">
-        {status ?? ""}
-      </p>
     </div>
   );
 }
 
-function ErrorLine({ error, onRetry }: { error: ChatError; onRetry: () => void }) {
+interface ErrorLineProps {
+  error: ChatError;
+  retryDisabled: boolean;
+  onRetry: () => void;
+}
+
+function ErrorLine({ error, retryDisabled, onRetry }: ErrorLineProps) {
   return (
     <div className="twin-error" role="status">
       <span>{error.text}</span>
-      {error.retryable ? (
+      {error.retryable && !retryDisabled ? (
         <button type="button" className="twin-error__retry mono" onClick={onRetry}>
           Retry
         </button>
@@ -84,7 +89,14 @@ function ErrorLine({ error, onRetry }: { error: ChatError; onRetry: () => void }
   );
 }
 
-export function Transcript({ messages, pending, status, error, onRetry }: TranscriptProps) {
+export function Transcript({
+  messages,
+  pending,
+  status,
+  error,
+  retryDisabled,
+  onRetry,
+}: TranscriptProps) {
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,13 +104,22 @@ export function Transcript({ messages, pending, status, error, onRetry }: Transc
     if (log) log.scrollTop = log.scrollHeight;
   }, [messages, pending, status, error]);
 
+  // Status and error lines are live regions of their own, so they sit beside
+  // the log rather than inside it (nested live regions announce twice).
   return (
-    <div className="twin-transcript" role="log" aria-live="polite" ref={logRef}>
-      {messages.map((message, index) => (
-        <MessageBubble key={index} message={message} />
-      ))}
-      {pending ? <PendingBubble pending={pending} status={status} /> : null}
-      {error ? <ErrorLine error={error} onRetry={onRetry} /> : null}
-    </div>
+    <>
+      <div className="twin-transcript" role="log" aria-live="polite" ref={logRef}>
+        {messages.map((message, index) => (
+          <MessageBubble key={index} message={message} />
+        ))}
+        {pending ? <PendingBubble pending={pending} /> : null}
+      </div>
+      {pending ? (
+        <p className="twin-status mono" aria-live="polite" aria-atomic="true">
+          {status ?? ""}
+        </p>
+      ) : null}
+      {error ? <ErrorLine error={error} retryDisabled={retryDisabled} onRetry={onRetry} /> : null}
+    </>
   );
 }

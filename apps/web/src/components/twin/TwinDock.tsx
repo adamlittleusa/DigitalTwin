@@ -3,13 +3,14 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useReducer,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { TWIN_OPEN_EVENT } from "@/components/twin/OpenTwinButton";
-import { TwinPanel } from "@/components/twin/TwinPanel";
+import { TWIN_PANEL_ID, TwinPanel } from "@/components/twin/TwinPanel";
 import {
   ChatHttpError,
   apiBase,
@@ -28,6 +29,7 @@ import {
   type TwinState,
 } from "@/twin/state";
 import { loadState, saveState } from "@/twin/storage";
+import { sawDoneAfter, streamEndedEarly } from "@/twin/turn";
 
 /** The turn ends if no frame arrives for this long. */
 const INACTIVITY_MS = 90_000;
@@ -44,8 +46,11 @@ function toChatMessages(state: TwinState): ChatMessage[] {
 
 export function TwinDock() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  // Mirrored in a layout effect, which commits synchronously before any
+  // handler can run, so the double-send guard never sees a stale state.
+  // (Writing the ref during render is what the React Compiler lint forbids.)
   const stateRef = useRef(state);
-  useEffect(() => {
+  useLayoutEffect(() => {
     stateRef.current = state;
   });
 
@@ -84,7 +89,7 @@ export function TwinDock() {
     if (!state.open || !base || examplesRequested.current) return;
     examplesRequested.current = true;
     fetchExamples(base)
-      .then((list) => setExamples(Array.isArray(list) ? list.filter((s) => typeof s === "string") : []))
+      .then(setExamples)
       .catch((error: unknown) => console.warn("twin: examples unavailable", error));
   }, [state.open, base]);
 
@@ -125,6 +130,9 @@ export function TwinDock() {
       };
       armInactivity();
 
+      // Tracked here rather than read back from state after the await: the
+      // reducer's `done` may not have committed yet when the stream closes.
+      let sawDone = false;
       try {
         await streamChat(
           base,
@@ -132,12 +140,12 @@ export function TwinDock() {
           (frame) => {
             armInactivity();
             const parsed = parseFrame(frame);
+            sawDone = sawDoneAfter(sawDone, parsed);
             if (parsed) dispatch({ type: "frame", event: parsed.event, data: parsed.data });
           },
           controller.signal,
         );
-        // A stream that closes without `done` leaves the turn hanging.
-        if (stateRef.current.pending !== null) {
+        if (streamEndedEarly(sawDone)) {
           dispatch({ type: "fail", text: STREAM_ENDED_EARLY_TEXT, retryable: true });
         }
       } catch (error) {
@@ -198,6 +206,7 @@ export function TwinDock() {
         type="button"
         className="twin-dock mono"
         aria-expanded={state.open}
+        aria-controls={TWIN_PANEL_ID}
         onClick={() => dispatch({ type: state.open ? "close" : "open" })}
       >
         Ask the twin
@@ -208,6 +217,7 @@ export function TwinDock() {
           examples={examples}
           offDomain={offDomain}
           composerDisabled={composerDisabled}
+          coolingDown={coolingDown}
           atCap={atCap}
           onClose={handleClose}
           onSend={handleSend}

@@ -620,7 +620,8 @@ button:focus-visible {
 
 @media (max-width: 699px) {
   .twin-panel {
-    width: 100vw;
+    left: 0;
+    width: auto;
     border-left: 0;
   }
 }

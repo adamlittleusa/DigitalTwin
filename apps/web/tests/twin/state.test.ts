@@ -135,19 +135,70 @@ describe("reducer: frame - done", () => {
 });
 
 describe("reducer: frame - agent_error", () => {
-  it("finalizes the pending reply using the error message", () => {
+  it("agent_error keeps the reply pending with the error text and marks it errored", () => {
     let state = reducer(initialState, { type: "send", text: "hi" });
     state = reducer(state, {
       type: "frame",
       event: "agent_error",
       data: { code: "deflect", message: "I'll pass that along to Adam." },
     });
-    expect(state.pending).toBeNull();
-    expect(state.messages[1]).toEqual({
-      role: "assistant",
-      text: "I'll pass that along to Adam.",
-      cards: [],
+    expect(state.messages).toHaveLength(1);
+    expect(state.pending).toEqual({ text: "I'll pass that along to Adam.", cards: [], errored: true });
+    expect(state.status).toBeNull();
+  });
+
+  it("send, agent_error, done yields exactly one assistant message with the error text", () => {
+    let state = reducer(initialState, { type: "send", text: "hi" });
+    state = reducer(state, { type: "frame", event: "delta", data: { text: "partial" } });
+    state = reducer(state, {
+      type: "frame",
+      event: "agent_error",
+      data: { code: "model_error", message: "Something went wrong." },
     });
+    state = reducer(state, { type: "frame", event: "done", data: { reply: "", rounds: 1 } });
+    expect(state.pending).toBeNull();
+    expect(state.messages.filter((m) => m.role === "assistant")).toEqual([
+      { role: "assistant", text: "Something went wrong.", cards: [] },
+    ]);
+  });
+
+  it("done twice does not duplicate the assistant message", () => {
+    let state = reducer(initialState, { type: "send", text: "hi" });
+    state = reducer(state, { type: "frame", event: "done", data: { reply: "once" } });
+    const again = reducer(state, { type: "frame", event: "done", data: { reply: "once" } });
+    expect(again).toBe(state);
+    expect(again.messages.filter((m) => m.role === "assistant")).toHaveLength(1);
+  });
+
+  it("done with no pending reply is a no-op", () => {
+    expect(reducer(initialState, { type: "frame", event: "done", data: { reply: "x" } })).toBe(
+      initialState,
+    );
+  });
+});
+
+describe("reducer: malformed frames are ignored", () => {
+  const sent = reducer(initialState, { type: "send", text: "hi" });
+
+  it("delta without a string text leaves state unchanged", () => {
+    expect(reducer(sent, { type: "frame", event: "delta", data: { text: 42 } })).toBe(sent);
+    expect(reducer(sent, { type: "frame", event: "delta", data: {} })).toBe(sent);
+  });
+
+  it("project with missing or non-string fields leaves state unchanged", () => {
+    expect(
+      reducer(sent, { type: "frame", event: "project", data: { slug: "a", title: "A" } }),
+    ).toBe(sent);
+    expect(
+      reducer(sent, { type: "frame", event: "project", data: { slug: 1, title: "A", summary: "s" } }),
+    ).toBe(sent);
+  });
+
+  it("done without a string reply falls back to the streamed text", () => {
+    let state = reducer(sent, { type: "frame", event: "delta", data: { text: "streamed" } });
+    state = reducer(state, { type: "frame", event: "done", data: {} });
+    expect(state.pending).toBeNull();
+    expect(state.messages[1]).toEqual({ role: "assistant", text: "streamed", cards: [] });
   });
 });
 

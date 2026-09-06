@@ -23,6 +23,8 @@ export type Status = string | null;
 export interface PendingReply {
   text: string;
   cards: Card[];
+  /** Set once an `agent_error` frame replaced the text; `done` then keeps it. */
+  errored?: boolean;
 }
 
 export interface ChatError {
@@ -211,13 +213,17 @@ export function reducer(state: TwinState, action: TwinAction): TwinState {
       const { event, data } = action;
 
       if (event === "delta") {
-        const { text } = data as DeltaFrameData;
+        const { text } = data as Partial<DeltaFrameData>;
+        if (typeof text !== "string") return state;
         const pending = state.pending ?? { text: "", cards: [] };
         return { ...state, pending: { ...pending, text: pending.text + text } };
       }
 
       if (event === "project") {
-        const { slug, title, summary } = data as ProjectFrameData;
+        const { slug, title, summary } = data as Partial<ProjectFrameData>;
+        if (typeof slug !== "string" || typeof title !== "string" || typeof summary !== "string") {
+          return state;
+        }
         const pending = state.pending ?? { text: "", cards: [] };
         return {
           ...state,
@@ -229,24 +235,29 @@ export function reducer(state: TwinState, action: TwinAction): TwinState {
         return { ...state, status: statusFor(event, data) };
       }
 
+      // `done` always closes a turn, including one that hit an `agent_error`.
+      // With nothing pending the turn is already closed, so this is a no-op.
       if (event === "done") {
-        const { reply } = data as DoneFrameData;
-        const pending = state.pending ?? { text: "", cards: [] };
+        const pending = state.pending;
+        if (pending === null) return state;
+        const { reply } = data as Partial<DoneFrameData>;
+        const text = pending.errored || typeof reply !== "string" ? pending.text : reply;
         return {
           ...state,
-          messages: finalizeAssistantMessage(state, reply, pending.cards),
+          messages: finalizeAssistantMessage(state, text, pending.cards),
           pending: null,
           status: null,
         };
       }
 
+      // The API follows every `agent_error` with `done`, which finalises.
       if (event === "agent_error") {
-        const { message } = data as AgentErrorFrameData;
+        const { message } = data as Partial<AgentErrorFrameData>;
+        if (typeof message !== "string") return state;
         const pending = state.pending ?? { text: "", cards: [] };
         return {
           ...state,
-          messages: finalizeAssistantMessage(state, message, pending.cards),
-          pending: null,
+          pending: { ...pending, text: message, errored: true },
           status: null,
         };
       }

@@ -62,17 +62,32 @@ describe("fetchExamples", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns the parsed JSON array", async () => {
+  it("returns the questions array from the { questions } envelope", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ["Question one?", "Question two?"],
+      json: async () => ({ questions: ["Question one?", "Question two?"] }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const examples = await fetchExamples("https://api.adambuilds.ai");
     expect(examples).toEqual(["Question one?", "Question two?"]);
     expect(fetchMock).toHaveBeenCalledWith("https://api.adambuilds.ai/v1/examples");
+  });
+
+  it("returns [] when the response is not ok", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({ questions: ["x"] }) }),
+    );
+    expect(await fetchExamples("https://api.adambuilds.ai")).toEqual([]);
+  });
+
+  it("returns [] when questions is missing or not an array of strings", async () => {
+    for (const body of [["bare"], { questions: "nope" }, { questions: ["ok", 3] }, null]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => body }));
+      expect(await fetchExamples("https://api.adambuilds.ai")).toEqual([]);
+    }
   });
 });
 
