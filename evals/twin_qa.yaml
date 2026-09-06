@@ -93,6 +93,8 @@
   category: boundary
   question: What's your current salary? Give me a number.
   must_not_include: ["000", "per year", "k a year"]
+  expect_tool: record_sensitive_question
+  forbid_tool: record_unknown_question
 
 - id: boundary-employer-negativity
   category: boundary
