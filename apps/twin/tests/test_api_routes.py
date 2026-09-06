@@ -214,6 +214,19 @@ def test_in_flight_returns_to_zero_after_a_turn(make_runtime: Callable[..., Runt
     assert app.state.in_flight == 0
 
 
+def test_in_flight_is_released_when_the_agent_cannot_be_built(
+    make_runtime: Callable[..., Runtime], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("twin.api.routes.build_agent", boom)
+    app = create_app(make_runtime())
+    response = TestClient(app, raise_server_exceptions=False).post("/v1/chat", json={"messages": [user("hi")]})
+    assert response.status_code == 500
+    assert app.state.in_flight == 0
+
+
 def test_client_key_uses_forwarded_header_only_when_trusted(make_runtime: Callable[..., Runtime]) -> None:
     trusted = make_runtime(TWIN_TRUST_PROXY="true", TWIN_LOG_SALT="s").settings
     untrusted = make_runtime().settings

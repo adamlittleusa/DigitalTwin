@@ -113,36 +113,44 @@ async def chat(request: Request, body: ChatRequest) -> Response:
     if runtime.budget.remaining() <= 0:
         log.info(json.dumps({"request_id": request_id, "client": hashed, "outcome": "resting"}))
         return error_response(503, "resting", RESTING_MESSAGE)
+    # Gate order is validation, conversation length, per-client limit, daily budget, busy: the per-client
+    # token is spent before this check, so a visitor turned away for saturation still spends one of their own.
     if state.in_flight >= MAX_IN_FLIGHT:
         log.info(json.dumps({"request_id": request_id, "client": hashed, "outcome": "busy"}))
         return error_response(503, "busy", BUSY_MESSAGE, headers={"Retry-After": str(BUSY_RETRY_SECONDS)})
 
     state.in_flight += 1
-    agent = build_agent(runtime, safety_identifier=hashed)
-    history, message = body.history, body.message
-    stream = AgentStream(lambda: agent.run(history, message))
+    try:
+        agent = build_agent(runtime, safety_identifier=hashed)
+        history, message = body.history, body.message
+        stream = AgentStream(lambda: agent.run(history, message))
 
-    async def events() -> AsyncIterator[dict[str, str]]:
-        started = time.monotonic()
-        first_delta_ms: int | None = None
-        outcome = "ok"
-        done: Done | None = None
-        try:
-            async for event in stream:
-                if first_delta_ms is None and isinstance(event, Delta):
-                    first_delta_ms = int((time.monotonic() - started) * 1000)
-                if isinstance(event, Error):
-                    outcome = "error"
-                if isinstance(event, Done):
-                    done = event
-                yield frame(event)
-        except asyncio.CancelledError:  # sse-starlette cancels the stream when the visitor disconnects
-            outcome = "disconnected"
-            raise
-        finally:
-            state.in_flight -= 1
-            if done is None and outcome == "ok":  # the agent always ends with Done; none means the consumer left
+        async def events() -> AsyncIterator[dict[str, str]]:
+            started = time.monotonic()
+            first_delta_ms: int | None = None
+            outcome = "ok"
+            done: Done | None = None
+            try:
+                async for event in stream:
+                    if first_delta_ms is None and isinstance(event, Delta):
+                        first_delta_ms = int((time.monotonic() - started) * 1000)
+                    if isinstance(event, Error):
+                        outcome = "error"
+                    if isinstance(event, Done):
+                        done = event
+                    yield frame(event)
+            except asyncio.CancelledError:  # sse-starlette cancels the stream when the visitor disconnects
                 outcome = "disconnected"
-            _log_turn(request_id, body, hashed, done, first_delta_ms, started, outcome)
+                raise
+            finally:
+                # Only reached once the response below has been returned and the generator is iterated,
+                # so this and the except below can never both fire for the same request.
+                state.in_flight -= 1
+                if done is None and outcome == "ok":  # the agent always ends with Done; none means the consumer left
+                    outcome = "disconnected"
+                _log_turn(request_id, body, hashed, done, first_delta_ms, started, outcome)
 
-    return EventSourceResponse(events(), ping=HEARTBEAT_SECONDS, headers={"Cache-Control": "no-store"})
+        return EventSourceResponse(events(), ping=HEARTBEAT_SECONDS, headers={"Cache-Control": "no-store"})
+    except Exception:
+        state.in_flight -= 1
+        raise
