@@ -424,3 +424,107 @@ button:focus-visible {
 .empty-state__body {
   color: var(--text-2);
 }
+
+/* Gallery */
+
+.identity {
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.identity__line {
+  font-size: var(--fs-lg);
+  line-height: var(--lh-body);
+  color: var(--text-2);
+  max-width: 60ch;
+}
+
+.identity__name {
+  color: var(--text);
+}
+
+.identity__line a {
+  color: var(--accent);
+}
+
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-7);
+}
+
+.gallery .view-toggle {
+  align-self: flex-start;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gallery__grid {
+  animation: fade var(--t-fade) var(--ease);
+}
+
+/* Architecture shows by default; the toggle sets data-view on #gallery. */
+.gallery__grid--use-cases,
+.gallery[data-view="use-cases"] .gallery__grid--architecture {
+  display: none;
+}
+
+.gallery[data-view="use-cases"] .gallery__grid--use-cases {
+  display: grid;
+}
+
+/* Page sections and meta */
+
+.page-section {
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-7);
+}
+
+.page-section__title {
+  font-size: var(--fs-xl);
+  margin-bottom: var(--space-3);
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: calc(-1 * var(--space-3));
+  margin-bottom: var(--space-4);
+}
+
+.prose {
+  margin-bottom: var(--space-7);
+}
+
+/* Writing list */
+
+.writing-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-7);
+}
+
+.writing-list__title {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  margin-top: var(--space-1);
+}
+
+.writing-list__summary {
+  color: var(--text-2);
+  margin-top: var(--space-1);
+  max-width: 60ch;
+}
