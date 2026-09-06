@@ -267,6 +267,10 @@ button:focus-visible {
   margin: 0 0 var(--space-1);
 }
 
+.page-header__eyebrow a {
+  color: inherit;
+}
+
 .page-header__title {
   font-size: var(--fs-2xl);
   line-height: var(--lh-display);
@@ -288,6 +292,7 @@ button:focus-visible {
   line-height: var(--lh-body);
   max-width: 68ch;
   color: var(--text);
+  margin-bottom: var(--space-7);
 }
 
 .prose h2 {
@@ -430,17 +435,26 @@ button:focus-visible {
 .identity {
   margin-top: var(--space-6);
   margin-bottom: var(--space-4);
-}
-
-.identity__line {
   font-size: var(--fs-lg);
   line-height: var(--lh-body);
-  color: var(--text-2);
   max-width: 60ch;
+}
+
+/* The name is the page h1 but reads as the first words of the sentence. */
+.identity__name,
+.identity__line {
+  display: inline;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }
 
 .identity__name {
   color: var(--text);
+}
+
+.identity__line {
+  color: var(--text-2);
 }
 
 .identity__line a {
@@ -500,10 +514,6 @@ button:focus-visible {
   gap: var(--space-2);
   margin-top: calc(-1 * var(--space-3));
   margin-bottom: var(--space-4);
-}
-
-.prose {
-  margin-bottom: var(--space-7);
 }
 
 /* Writing list */

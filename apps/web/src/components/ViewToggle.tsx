@@ -14,9 +14,54 @@ const TABS: { view: GalleryView; href: string; label: string }[] = [
   { view: "use-cases", href: "/?view=use-cases", label: "Use cases" },
 ];
 
+const DEFAULT_VIEW: GalleryView = "architecture";
+
+/** Roving-tabindex keyboard navigation: arrows wrap, Home/End jump. */
+function nextTabIndex(key: string, index: number): number | undefined {
+  switch (key) {
+    case "ArrowRight":
+      return (index + 1) % TABS.length;
+    case "ArrowLeft":
+      return (index - 1 + TABS.length) % TABS.length;
+    case "Home":
+      return 0;
+    case "End":
+      return TABS.length - 1;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Server-rendered fallback for the Suspense boundary around `ViewToggle`.
+ * Same pill markup with plain links, architecture marked active, so the
+ * prerendered HTML has a working toggle before the client hydrates.
+ */
+export function StaticViewToggle() {
+  return (
+    <div className="view-toggle" role="tablist" aria-label="Gallery view">
+      {TABS.map((tab) => {
+        const selected = tab.view === DEFAULT_VIEW;
+        return (
+          <Link
+            key={tab.view}
+            href={tab.href}
+            role="tab"
+            aria-selected={selected}
+            tabIndex={selected ? 0 : -1}
+            className={`view-toggle__tab${selected ? " view-toggle__tab--active" : ""}`}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 export function useGalleryView(): GalleryView {
   const view = useSearchParams().get(VIEW_PARAM);
-  return view === USE_CASES_VIEW ? "use-cases" : "architecture";
+  return view === USE_CASES_VIEW ? "use-cases" : DEFAULT_VIEW;
 }
 
 export function ViewToggle() {
@@ -29,10 +74,9 @@ export function ViewToggle() {
   }, [view]);
 
   function handleKeyDown(event: React.KeyboardEvent, index: number) {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const next = nextTabIndex(event.key, index);
+    if (next === undefined) return;
     event.preventDefault();
-    const delta = event.key === "ArrowRight" ? 1 : -1;
-    const next = (index + delta + TABS.length) % TABS.length;
     tabRefs.current[next]?.focus();
   }
 

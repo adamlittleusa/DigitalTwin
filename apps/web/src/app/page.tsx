@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { PatternDiagram } from "@/components/PatternDiagram";
 import { Tile } from "@/components/Tile";
-import { ViewToggle } from "@/components/ViewToggle";
+import { StaticViewToggle, ViewToggle } from "@/components/ViewToggle";
 import { loadProjects } from "@/content/load";
 import { deriveUseCases } from "@/content/use-cases";
 import { PATTERN_LIST } from "@/patterns";
@@ -18,7 +18,8 @@ function projectCount(n: number): string {
 /**
  * The gallery is static. Both grids are rendered; `ViewToggle` reads
  * `?view=` on the client and sets `data-view` on `#gallery`, and CSS shows
- * the matching grid (architecture by default).
+ * the matching grid (architecture by default). The prerendered HTML carries
+ * `StaticViewToggle` (architecture active) until the client toggle hydrates.
  */
 export default function Home() {
   const projects = loadProjects();
@@ -27,14 +28,14 @@ export default function Home() {
   return (
     <div className="container">
       <section className="identity">
+        <h1 className="identity__name">Adam Little.</h1>{" "}
         <p className="identity__line">
-          <span className="identity__name">Adam Little.</span> {IDENTITY_LINE}{" "}
-          <Link href="/about">About me</Link>
+          {IDENTITY_LINE} <Link href="/about">About me</Link>
         </p>
       </section>
 
       <section id="gallery" className="gallery" aria-label="Gallery">
-        <Suspense fallback={null}>
+        <Suspense fallback={<StaticViewToggle />}>
           <ViewToggle />
         </Suspense>
 
@@ -44,6 +45,7 @@ export default function Home() {
               key={pattern.key}
               href={`/architecture/${pattern.key}`}
               eyebrow={pattern.key}
+              headingLevel="h2"
               title={pattern.name}
               description={pattern.oneLine}
               diagram={<PatternDiagram pattern={pattern.key} size="tile" />}
@@ -60,6 +62,7 @@ export default function Home() {
               key={useCase.slug}
               href={`/use-cases/${useCase.slug}`}
               eyebrow="Use case"
+              headingLevel="h2"
               title={useCase.label}
               description={useCase.description}
               count={projectCount(useCase.projects.length)}

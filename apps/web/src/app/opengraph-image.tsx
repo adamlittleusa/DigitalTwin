@@ -11,15 +11,20 @@ const TEXT = "#ececf1";
 const TEXT_MUTED = "#7b8194";
 const TITLE = "Adam Little builds agents";
 const SITE = "adambuilds.ai";
-const FONT_FILE = path.join(
-  process.cwd(),
-  "node_modules",
-  "geist",
-  "dist",
-  "fonts",
-  "geist-sans",
-  "Geist-Medium.ttf",
-);
+/**
+ * Resolve the font through the package rather than `process.cwd()`, so it
+ * holds wherever `geist` is hoisted. `package.json` is not in geist's exports
+ * map, so resolve the exported `font/sans` entry (`dist/sans.js`) and walk to
+ * `dist/fonts` from there. Turbopack rewrites any statically visible
+ * `require.resolve` into a module id, so fetch Node's resolver through
+ * `process.getBuiltinModule`, which the bundler leaves alone.
+ */
+function resolveGeistDist(): string {
+  const { createRequire } = process.getBuiltinModule("node:module");
+  return path.dirname(createRequire(import.meta.url).resolve("geist/font/sans"));
+}
+
+const FONT_FILE = path.join(resolveGeistDist(), "fonts/geist-sans/Geist-Medium.ttf");
 
 export default async function OpenGraphImage() {
   const geist = await fs.readFile(FONT_FILE);

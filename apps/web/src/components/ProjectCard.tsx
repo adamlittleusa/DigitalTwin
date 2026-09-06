@@ -1,8 +1,10 @@
 import Link from "next/link";
+import type { HeadingLevel } from "@/components/Tile";
 import type { ProjectMeta } from "@/content/schema";
 
 interface ProjectCardProps {
   project: ProjectMeta;
+  headingLevel?: HeadingLevel;
 }
 
 const STATUS_LABEL: Record<ProjectMeta["status"], string> = {
@@ -11,11 +13,12 @@ const STATUS_LABEL: Record<ProjectMeta["status"], string> = {
   retired: "retired",
 };
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, headingLevel = "h3" }: ProjectCardProps) {
+  const Heading = headingLevel;
   return (
     <Link href={`/projects/${project.slug}`} className="project-card">
       <div className="project-card__row">
-        <h3 className="project-card__title">{project.title}</h3>
+        <Heading className="project-card__title">{project.title}</Heading>
         <span
           className={`mono project-card__status project-card__status--${project.status}`}
         >

@@ -14,6 +14,9 @@ function findPost(slug: string): Writing | undefined {
   );
 }
 
+/** Unknown params 404 at build time instead of rendering on demand. */
+export const dynamicParams = false;
+
 /** With no posts yet this returns [] and the build still passes. */
 export function generateStaticParams() {
   return loadWriting(undefined, { includeDrafts: INCLUDE_DRAFTS }).map(({ meta }) => ({

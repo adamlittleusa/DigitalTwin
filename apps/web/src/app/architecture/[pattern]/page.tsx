@@ -14,6 +14,9 @@ function asPatternKey(value: string): PatternKey | undefined {
   return PATTERN_KEYS.find((key) => key === value);
 }
 
+/** Unknown params 404 at build time instead of rendering on demand. */
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return PATTERN_KEYS.map((pattern) => ({ pattern }));
 }

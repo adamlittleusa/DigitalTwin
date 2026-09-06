@@ -8,6 +8,9 @@ import { PATTERNS } from "@/patterns";
 
 type Params = Promise<{ slug: string }>;
 
+/** Unknown params 404 at build time instead of rendering on demand. */
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return loadProjects().map((project) => ({ slug: project.meta.slug }));
 }

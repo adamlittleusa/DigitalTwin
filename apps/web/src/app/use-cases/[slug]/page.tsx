@@ -11,6 +11,9 @@ function findUseCase(slug: string): UseCase | undefined {
   return deriveUseCases(loadProjects()).find((useCase) => useCase.slug === slug);
 }
 
+/** Unknown params 404 at build time instead of rendering on demand. */
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return deriveUseCases(loadProjects()).map(({ slug }) => ({ slug }));
 }
@@ -30,7 +33,7 @@ export default async function UseCasePage({ params }: { params: Params }) {
       <PageHeader eyebrow="Use case" title={useCase.label} lede={useCase.description} />
       <div className="tile-grid page-section">
         {useCase.projects.map((project) => (
-          <ProjectCard key={project.meta.slug} project={project.meta} />
+          <ProjectCard key={project.meta.slug} project={project.meta} headingLevel="h2" />
         ))}
       </div>
     </div>
