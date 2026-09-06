@@ -160,11 +160,9 @@ def test_every_committed_knowledge_file_is_reviewed() -> None:
     assert not unreviewed, f"Set a reviewed date on: {unreviewed}"
 ```
 
-Run: `uv run pytest tests/test_knowledge_reviewed.py -q`. Expected today: one failure naming `projects/digital-twin.md`. **Adam** sets the date on that file (he reviews it, then adds `reviewed: 2026-09-06` to its frontmatter). If he already has, the test passes.
+Run: `uv run pytest tests/test_knowledge_reviewed.py -q`. Expected: it passes; `projects/digital-twin.md` already carries a reviewed date (Adam set `06-09-2026`). Normalise that value to the ISO form the other files use, `reviewed: 2026-09-06`, and confirm the test still passes. (If any file were unreviewed, the test would name it and **Adam** would set the date.)
 
 - [ ] **Step 2: Commit**
-
-Commit the test together with Adam's reviewed date once it passes:
 
 ```bash
 git add apps/twin/tests/test_knowledge_reviewed.py knowledge/projects/digital-twin.md
@@ -353,7 +351,7 @@ Report to Adam: "found nothing" or the list of terms and the commits they appear
 
 ### Task 6: First deploy
 
-Run with Adam present. Git Bash from the repo root unless stated.
+Run with Adam present. Git Bash from the repo root unless stated. Already done by Adam on 2026-09-06: payment method on the Fly account, the GoDaddy CNAME, and the OpenAI monthly usage limit.
 
 - [ ] **Step 1: Login** — **Adam**: `fly auth login` (browser). Then `fly auth whoami` shows his email.
 - [ ] **Step 2: Create the app** — `fly apps create adambuilds-twin --org personal`. If the name is taken, use `adambuilds-twin-api`, change `app` in `fly.toml`, commit, and tell Adam the CNAME value changes to `adambuilds-twin-api.fly.dev`.
@@ -368,7 +366,7 @@ fly secrets list -a adambuilds-twin
 Expected: four names listed with digests, no values.
 
 - [ ] **Step 4: Deploy** — `fly deploy --remote-only --ha=false`. Expected: the remote build succeeds and one machine starts in `bos`. Then `fly scale show -a adambuilds-twin` reports 1 machine, `fly status` shows it healthy, and `curl -s https://adambuilds-twin.fly.dev/v1/health` returns `"status":"ok"` with `"knowledge_files":17`.
-- [ ] **Step 5: Certificate** — the CNAME `api` → `adambuilds-twin.fly.dev` already exists at GoDaddy. `fly certs add api.adambuilds.ai -a adambuilds-twin`, then `fly certs check api.adambuilds.ai -a adambuilds-twin` until it reports the certificate is issued (DNS propagation plus issuance, usually minutes).
+- [ ] **Step 5: Certificate** — Adam added the CNAME `api` → `adambuilds-twin.fly.dev` at GoDaddy on 2026-09-06; confirm it resolves first with `nslookup api.adambuilds.ai` (expect the `fly.dev` name in the answer; if not, wait for propagation before continuing). Then `fly certs add api.adambuilds.ai -a adambuilds-twin`, then `fly certs check api.adambuilds.ai -a adambuilds-twin` until it reports the certificate is issued (DNS propagation plus issuance, usually minutes).
 - [ ] **Step 6: Acceptance from the public URL** —
 
 ```bash
