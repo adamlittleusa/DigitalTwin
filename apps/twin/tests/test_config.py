@@ -256,3 +256,9 @@ def test_repo_root_finds_the_source_tree(monkeypatch: pytest.MonkeyPatch, tmp_pa
     (tmp_path / "repo" / "knowledge").mkdir(parents=True)
     monkeypatch.setattr(config, "__file__", str(source_tree / "config.py"))
     assert config._repo_root() == (tmp_path / "repo").resolve()
+
+
+def test_client_ip_header_defaults_blank_and_is_stripped() -> None:
+    assert Settings.from_env({"OPENAI_API_KEY": "sk-test"}).client_ip_header == ""
+    settings = Settings.from_env({"OPENAI_API_KEY": "sk-test", "TWIN_CLIENT_IP_HEADER": " Fly-Client-IP "})
+    assert settings.client_ip_header == "Fly-Client-IP"

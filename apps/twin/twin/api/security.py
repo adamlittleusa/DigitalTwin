@@ -28,13 +28,18 @@ class RequestLike(Protocol):
 
 
 def client_key(request: RequestLike, settings: Settings) -> str:
-    """The visitor's address: the hop a trusted proxy appended to X-Forwarded-For, else the peer.
+    """The visitor's address behind a trusted proxy, else the peer.
 
-    A proxy appends the address it saw to the end of the header, so the last non-empty entry is the
-    one it wrote; anything earlier came from the client and can say whatever it likes. Without the
-    header, or with only empty entries, the peer address is used.
+    Behind a trusted proxy the configured client-IP header (Fly sets Fly-Client-IP) wins when present.
+    Otherwise the last non-empty X-Forwarded-For hop is used: a proxy appends the address it saw to the
+    end, so anything earlier came from the client and can say whatever it likes. Without either, the
+    peer address is used.
     """
     if settings.trust_proxy:
+        header = settings.client_ip_header.lower()
+        named = request.headers.get(header, "").strip() if header else ""
+        if named:
+            return named
         hops = [hop.strip() for hop in request.headers.get("x-forwarded-for", "").split(",")]
         appended = next((hop for hop in reversed(hops) if hop), None)
         if appended:
