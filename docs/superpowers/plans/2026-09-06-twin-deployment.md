@@ -12,6 +12,12 @@
 
 **Skills to apply:** @superpowers:test-driven-development for the code tasks.
 
+## Review-driven deviations, recorded during execution
+
+- **Task 3.** `fly config validate` needs a login, so it ran at the start of Task 6 (valid). The `fly` alias was not created (admin symlink); commands use `%USERPROFILE%\.fly\bin\flyctl.exe`.
+- **Task 5.** Scan found Deloitte, T-Mobile, and Becton Dickinson in two early revisions of `evals/twin_qa.yaml` (an eval must-not-say list later replaced by decoys); nothing else. Reported to Adam.
+- **Task 6.** Region `bos` is deprecated on Fly; the app runs in `ewr`. Fly required the CNAME to point at the app-specific name `6kz5qlj.adambuilds-twin.fly.dev` before it would issue the certificate; Adam updated the GoDaddy record. Machine `8d2d30beee5778`, image 76 MB compressed.
+
 ---
 
 ## Conventions

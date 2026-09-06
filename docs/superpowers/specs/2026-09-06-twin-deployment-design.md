@@ -296,6 +296,22 @@ turn lines and nothing that looks like a secret.
 - **Free-tier changes.** Fly's pricing changes over time; the machine is small enough that the exposure is dollars.
 - **Header trust.** `TWIN_TRUST_PROXY=true` is only correct behind Fly. The same `fly.toml` is never used for a local run.
 
-## 14. Follow-on specs
+## 14. Deviations recorded during execution
+
+- **Region.** Fly no longer provisions machines in `bos`; the app runs in
+  `ewr` (New Jersey), Fly's suggested alternative. `fly.toml` says `ewr`.
+- **CNAME target.** Fly validates a CNAME setup only when the record points
+  at the app-specific name it prints in `fly certs setup`
+  (`6kz5qlj.adambuilds-twin.fly.dev`), not the plain `adambuilds-twin.fly.dev`.
+  The GoDaddy record uses the app-specific name. If the app is ever
+  recreated, that name changes and the record must follow.
+- **flyctl on Windows.** The installer's `fly` alias needs an admin symlink;
+  the runbook uses the full path `%USERPROFILE%\.fly\bin\flyctl.exe`, and
+  `fly config validate` needs a login, so it runs after `auth login`.
+- **History scan.** Three held-back client names appear in two early
+  revisions of `evals/twin_qa.yaml` on public history (a must-not-say list
+  replaced by decoys before PR #1 merged). Reported to Adam; no rewrite.
+
+## 15. Follow-on specs
 
 1. Site and design system: Next.js on Vercel, the chat UI that renders the SSE events, the project pages the cards link to, apex and `www` DNS at GoDaddy.
