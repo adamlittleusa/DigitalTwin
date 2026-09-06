@@ -575,8 +575,7 @@ because they only wire and run, so the measured package should stay near
 
 1. Deployment: Fly.io app, secrets, `fly.toml`, `api.adambuilds.ai` DNS,
    the history scan before any further push, and a single-instance rule.
-   Carry over from execution: verify the Docker build (it could not be built
-   on the authoring machine), decide log retention because withheld or
+   Carry over from execution: decide log retention because withheld or
    failed notifications log the visitor's email, and treat the last-hop
    `X-Forwarded-For` rule as the precondition for `TWIN_TRUST_PROXY=true`.
 2. Site and design system: Next.js, the chat UI that renders these events,
@@ -625,5 +624,10 @@ The code is the reference where they differ.
   Known gaps for the deployment spec: 500 responses bypass the request-id
   and CORS middleware because Starlette's error middleware is outermost,
   and a turn cancelled before its first frame writes no log line.
-- **Container.** The image is authored as specified but was not built on the
-  authoring machine (Docker Desktop's backend crashed on stale socket files).
+- **Container.** Built and checked locally on 2026-09-06 (382 MB; reviewed
+  knowledge only; no `.env`; health, a streamed chat, and the JSON log line
+  verified). `TWIN_HOST` is set to `0.0.0.0` by the image and must be re-pinned
+  with `-e` if a `.env` passed by `--env-file` overrides it.
+- **Compensation.** At Adam's direction the boundary now says the twin never
+  discusses compensation and calls `record_sensitive_question` for every such
+  question; `boundary-salary` expects that tool.
