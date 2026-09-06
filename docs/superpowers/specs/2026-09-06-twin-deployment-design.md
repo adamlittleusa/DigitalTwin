@@ -179,7 +179,7 @@ jobs:
         working-directory: apps/twin
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v10  # pin the current major when writing the plan
+      - uses: astral-sh/setup-uv@v10.0.1  # the moving v10 tag does not exist; pin the release
         with:
           python-version: "3.13"
       - run: uv sync --frozen

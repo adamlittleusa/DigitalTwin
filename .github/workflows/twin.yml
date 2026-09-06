@@ -21,7 +21,7 @@ jobs:
         working-directory: apps/twin
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           python-version: "3.13"
       - run: uv sync --frozen
