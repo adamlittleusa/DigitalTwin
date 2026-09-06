@@ -84,3 +84,25 @@ export async function streamChat(
     onFrame(frame);
   }
 }
+
+export type ParsedFrame = { event: string; data: Record<string, unknown> };
+
+/**
+ * The boundary between the wire and the reducer: turns a raw SSE frame into
+ * one with its `data` parsed as a JSON object. Returns `null` (and logs) when
+ * the payload is not valid JSON or is not an object, so a malformed frame is
+ * skipped rather than crashing the turn.
+ */
+export function parseFrame(frame: SseFrame): ParsedFrame | null {
+  try {
+    const parsed: unknown = JSON.parse(frame.data);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      console.warn(`twin: ${frame.event} frame payload is not an object`, frame.data);
+      return null;
+    }
+    return { event: frame.event, data: parsed as Record<string, unknown> };
+  } catch (error) {
+    console.warn(`twin: could not parse ${frame.event} frame`, frame.data, error);
+    return null;
+  }
+}

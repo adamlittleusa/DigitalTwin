@@ -3,10 +3,10 @@ import { loadState, saveState } from "@/twin/storage";
 
 /**
  * The repo has no jsdom dependency, so this stubs a minimal
- * `window.localStorage` directly on the Node global rather than switching
+ * `window.sessionStorage` directly on the Node global rather than switching
  * the test environment.
  */
-function createFakeLocalStorage() {
+function createFakeSessionStorage() {
   let store: Record<string, string> = {};
   return {
     getItem(key: string) {
@@ -25,11 +25,11 @@ function createFakeLocalStorage() {
 }
 
 describe("storage: save/load round-trip", () => {
-  let fakeLocalStorage: ReturnType<typeof createFakeLocalStorage>;
+  let fakeSessionStorage: ReturnType<typeof createFakeSessionStorage>;
 
   beforeEach(() => {
-    fakeLocalStorage = createFakeLocalStorage();
-    (globalThis as { window?: unknown }).window = { localStorage: fakeLocalStorage };
+    fakeSessionStorage = createFakeSessionStorage();
+    (globalThis as { window?: unknown }).window = { sessionStorage: fakeSessionStorage };
   });
 
   afterEach(() => {
@@ -55,7 +55,7 @@ describe("storage: save/load round-trip", () => {
     } as unknown as { messages: { role: "assistant"; text: string }[]; open: boolean };
 
     saveState(state);
-    const raw = fakeLocalStorage.getItem("twin:v1");
+    const raw = fakeSessionStorage.getItem("twin:v1");
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw as string);
     expect(Object.keys(parsed).sort()).toEqual(["messages", "open"]);
@@ -66,18 +66,18 @@ describe("storage: save/load round-trip", () => {
   });
 
   it("returns null on corrupt JSON", () => {
-    fakeLocalStorage.setItem("twin:v1", "{not valid json");
+    fakeSessionStorage.setItem("twin:v1", "{not valid json");
     expect(loadState()).toBeNull();
   });
 
   it("returns null when the stored value has no messages array", () => {
-    fakeLocalStorage.setItem("twin:v1", JSON.stringify({ open: true }));
+    fakeSessionStorage.setItem("twin:v1", JSON.stringify({ open: true }));
     expect(loadState()).toBeNull();
   });
 
-  it("loadState returns null when localStorage access throws", () => {
+  it("loadState returns null when sessionStorage access throws", () => {
     (globalThis as { window?: unknown }).window = {
-      localStorage: {
+      sessionStorage: {
         getItem() {
           throw new Error("blocked");
         },
@@ -86,9 +86,9 @@ describe("storage: save/load round-trip", () => {
     expect(loadState()).toBeNull();
   });
 
-  it("saveState swallows errors when localStorage access throws", () => {
+  it("saveState swallows errors when sessionStorage access throws", () => {
     (globalThis as { window?: unknown }).window = {
-      localStorage: {
+      sessionStorage: {
         setItem() {
           throw new Error("blocked");
         },

@@ -15,7 +15,7 @@ export interface PersistedTwinState {
  */
 export function loadState(): PersistedTwinState | null {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(STORAGE_KEY);
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<PersistedTwinState>;
     if (!parsed || !Array.isArray(parsed.messages)) return null;
@@ -32,8 +32,8 @@ export function loadState(): PersistedTwinState | null {
 export function saveState(state: PersistedTwinState): void {
   try {
     const toStore: PersistedTwinState = { messages: state.messages, open: state.open };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
   } catch {
-    // localStorage unavailable (SSR, privacy mode, quota exceeded) — no-op.
+    // sessionStorage unavailable (SSR, privacy mode, quota exceeded) — no-op.
   }
 }

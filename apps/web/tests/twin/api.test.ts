@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChatHttpError, apiBase, fetchExamples, streamChat } from "@/twin/api";
+import { ChatHttpError, apiBase, fetchExamples, parseFrame, streamChat } from "@/twin/api";
 
 const encoder = new TextEncoder();
 
@@ -166,5 +166,28 @@ describe("streamChat", () => {
     expect(caught).toBeInstanceOf(ChatHttpError);
     expect((caught as ChatHttpError).status).toBe(500);
     expect((caught as ChatHttpError).body).toBeUndefined();
+  });
+});
+
+describe("parseFrame", () => {
+  it("parses JSON object data and keeps the event name", () => {
+    expect(parseFrame({ event: "delta", data: '{"text":"hi"}' })).toEqual({
+      event: "delta",
+      data: { text: "hi" },
+    });
+  });
+
+  it("returns null and logs on invalid JSON", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(parseFrame({ event: "delta", data: "{not json" })).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("returns null when the payload is not an object", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(parseFrame({ event: "done", data: '"just a string"' })).toBeNull();
+    expect(parseFrame({ event: "done", data: "[1,2]" })).toBeNull();
+    warn.mockRestore();
   });
 });
