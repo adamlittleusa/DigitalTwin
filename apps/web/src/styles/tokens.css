@@ -21,5 +21,6 @@
   --space-5: 48px; --space-6: 64px; --space-7: 96px;
   --gutter: 24px; --content-max: 1120px; --radius: 12px;
   --ease: cubic-bezier(0.2, 0, 0, 1); --t-fast: 160ms; --t-draw: 600ms;
+  --draw-dash: 400; /* stroke-dasharray/offset for diagram draw-in */
 }
 @media (min-width: 900px) { :root { --gutter: 48px; } }

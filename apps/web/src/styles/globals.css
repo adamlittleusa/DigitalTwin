@@ -149,7 +149,7 @@ button:focus-visible {
 /* Pattern diagrams draw in on tile hover or focus */
 @keyframes draw {
   from {
-    stroke-dashoffset: 400;
+    stroke-dashoffset: var(--draw-dash);
   }
   to {
     stroke-dashoffset: 0;

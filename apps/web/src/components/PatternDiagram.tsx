@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { PATTERNS, type PatternKey } from "@/patterns";
 
 type Size = "tile" | "page";
@@ -11,7 +11,6 @@ type PatternDiagramProps = {
 const VIEW_W = 320;
 const VIEW_H = 160;
 const PAGE_MAX_WIDTH = 640;
-const DASH = 400;
 const LABEL_SIZE = 11;
 
 const BOX_FILL = "var(--surface-raised)";
@@ -20,8 +19,8 @@ const ARROW_STROKE = "var(--text-3)";
 const LABEL_FILL = "var(--text-2)";
 const ACCENT = "var(--accent)";
 
-const markerId = (pattern: PatternKey, accent: boolean) =>
-  `${pattern}-arrow${accent ? "-accent" : ""}`;
+const markerId = (scope: string, accent: boolean) =>
+  `${scope}-arrow${accent ? "-accent" : ""}`;
 
 type BoxProps = {
   x: number;
@@ -69,7 +68,7 @@ function Label({ x, y, accent = false, children }: LabelProps) {
   );
 }
 
-type ArrowProps = { d: string; pattern: PatternKey; accent?: boolean };
+type ArrowProps = { d: string; pattern: string; accent?: boolean };
 
 function Arrow({ d, pattern, accent = false }: ArrowProps) {
   return (
@@ -80,7 +79,7 @@ function Arrow({ d, pattern, accent = false }: ArrowProps) {
       stroke={accent ? ACCENT : ARROW_STROKE}
       strokeWidth={1.5}
       markerEnd={`url(#${markerId(pattern, accent)})`}
-      style={{ strokeDasharray: DASH, strokeDashoffset: 0 }}
+      style={{ strokeDasharray: "var(--draw-dash)", strokeDashoffset: 0 }}
     />
   );
 }
@@ -90,7 +89,7 @@ function Diamond({ cx, cy, r }: { cx: number; cy: number; r: number }) {
   return <path d={d} fill={BOX_FILL} stroke={BOX_STROKE} />;
 }
 
-function Markers({ pattern }: { pattern: PatternKey }) {
+function Markers({ pattern }: { pattern: string }) {
   const marker = (accent: boolean) => (
     <marker
       key={String(accent)}
@@ -111,7 +110,7 @@ function Markers({ pattern }: { pattern: PatternKey }) {
 const line = (x1: number, y1: number, x2: number, y2: number) =>
   `M ${x1} ${y1} L ${x2} ${y2}`;
 
-function PromptChaining(p: PatternKey) {
+function PromptChaining(p: string) {
   return (
     <>
       <Box x={16} y={62} w={64} h={36} label="LLM 1" />
@@ -128,7 +127,7 @@ function PromptChaining(p: PatternKey) {
   );
 }
 
-function Routing(p: PatternKey) {
+function Routing(p: string) {
   const rows = [
     { y: 20, label: "A", accent: false },
     { y: 66, label: "B", accent: true },
@@ -147,7 +146,7 @@ function Routing(p: PatternKey) {
   );
 }
 
-function Parallelization(p: PatternKey) {
+function Parallelization(p: string) {
   const ys = [20, 66, 112];
   return (
     <>
@@ -164,7 +163,7 @@ function Parallelization(p: PatternKey) {
   );
 }
 
-function OrchestratorWorkers(p: PatternKey) {
+function OrchestratorWorkers(p: string) {
   const xs = [32, 128, 224];
   return (
     <>
@@ -181,7 +180,7 @@ function OrchestratorWorkers(p: PatternKey) {
   );
 }
 
-function EvaluatorOptimizer(p: PatternKey) {
+function EvaluatorOptimizer(p: string) {
   const feedback = "M 180 98 L 180 128 L 60 128 L 60 98";
   return (
     <>
@@ -198,7 +197,7 @@ function EvaluatorOptimizer(p: PatternKey) {
   );
 }
 
-function AutonomousAgent(p: PatternKey) {
+function AutonomousAgent(p: string) {
   const plan = "M 148 62 C 136 26, 184 26, 172 62";
   return (
     <>
@@ -224,7 +223,7 @@ function AutonomousAgent(p: PatternKey) {
   );
 }
 
-const GEOMETRY: Record<PatternKey, (p: PatternKey) => ReactNode> = {
+const GEOMETRY: Record<PatternKey, (p: string) => ReactNode> = {
   "prompt-chaining": PromptChaining,
   routing: Routing,
   parallelization: Parallelization,
@@ -235,6 +234,9 @@ const GEOMETRY: Record<PatternKey, (p: PatternKey) => ReactNode> = {
 
 export function PatternDiagram({ pattern, size }: PatternDiagramProps) {
   const { name } = PATTERNS[pattern];
+  // Marker ids must be unique per instance: the gallery renders six diagrams
+  // on one page and a pattern page can repeat one inside the MDX body.
+  const scope = `${pattern}-${useId()}`;
   const style =
     size === "page"
       ? { width: "100%", maxWidth: PAGE_MAX_WIDTH, height: "auto" }
@@ -246,8 +248,8 @@ export function PatternDiagram({ pattern, size }: PatternDiagramProps) {
       aria-label={name}
       style={style}
     >
-      <Markers pattern={pattern} />
-      {GEOMETRY[pattern](pattern)}
+      <Markers pattern={scope} />
+      {GEOMETRY[pattern](scope)}
     </svg>
   );
 }

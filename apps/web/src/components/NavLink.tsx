@@ -15,12 +15,15 @@ type NavLinkProps = {
 /**
  * Current-page detection. The gallery at "/" has two views selected by
  * `?view=`: "Architecture" is current on "/" without the use-cases view,
- * "Use cases" only with it. Every other link matches on pathname alone.
+ * "Use cases" only with it. Every other link is current on its own path and
+ * on any path beneath it, so "/writing/foo" lights "Writing".
  */
 function isCurrent(href: string, pathname: string, view: string | null): boolean {
   const [hrefPath, hrefQuery] = href.split("?");
-  if (hrefPath !== pathname) return false;
-  if (hrefPath !== "/") return true;
+  if (hrefPath !== "/") {
+    return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
+  }
+  if (pathname !== "/") return false;
   const hrefView = new URLSearchParams(hrefQuery ?? "").get(VIEW_PARAM);
   const wantsUseCases = hrefView === USE_CASES_VIEW;
   const hasUseCases = view === USE_CASES_VIEW;
