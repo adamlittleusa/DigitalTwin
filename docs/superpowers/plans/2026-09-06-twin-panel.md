@@ -10,6 +10,13 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-06-twin-panel-design.md`. API contract: `docs/superpowers/specs/2026-09-05-twin-api-design.md` sections 10 and 11 (request shape, error bodies `{code, message, retry_after?}`, SSE event payloads).
 
+## Review-driven deviations, recorded during execution
+
+- **Task 1.** `ChatHttpError` carries the `Retry-After` header seconds; `parseFrame` (in `api.ts`) JSON-parses frame data at the wire boundary and returns `null` on bad payloads. The wire body maps the UI's `text` to the API's `content` (a review caught the client sending `text`).
+- **Task 2.** `storage.ts` first used `localStorage`; corrected to `sessionStorage`. Extra reducer actions `retry` (no duplicate user turn), `hydrate`, and `capReached`.
+- **Task 3.** `apiBase()` is read through `useSyncExternalStore` (the React Compiler lint rejects set-state-in-effect). A stream that ends without `done` while a reply is pending fails with the "lost the thread" text. A `.visually-hidden` utility was added.
+- **Task 4.** Lighthouse accessibility flagged one audit on both pages, `link-in-text-block`; prose and identity links now carry a persistent underline. Both pages score 100.
+
 ---
 
 ## Conventions
