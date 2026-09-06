@@ -126,7 +126,7 @@ hard-coded colours or sizes elsewhere.
 
 - **Colour.** Ground `#0b0c0f`; raised surface `#111318`; hairline
   `rgba(255,255,255,0.08)`; text primary `#ececf1`, secondary `#a3a7b3`,
-  muted `#6b7080`; accent `#9ec1ff` (cool blue-white), used for links,
+  muted `#7b8194` (about 5:1 on the ground; the earlier `#6b7080` failed 4.5:1); accent `#9ec1ff` (cool blue-white), used for links,
   focus rings, the active toggle, and diagram highlights, never for large
   fills. A faint grid on the ground: 1 px lines every 48 px at 3 percent
   white, fading out toward the page edges.
@@ -178,7 +178,9 @@ hard-coded colours or sizes elsewhere.
   "No projects here yet."
 - About: the arc, from `knowledge/career-arc.md` and the role files, in
   reader's prose, with the LinkedIn link and the same boundaries the twin
-  keeps (nothing about why any role ended; Corelight wrapped up August 2026).
+  keeps: reasons for leaving only as the role files record them, nothing
+  about the Corelight ending beyond "wrapped up in August 2026", no client
+  names or military detail beyond the knowledge files.
 - Writing: empty state.
 
 ## 10. Verification
