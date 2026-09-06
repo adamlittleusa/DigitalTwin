@@ -1,9 +1,10 @@
 import { evaluate } from "next-mdx-remote-client/rsc";
 import type { MDXComponents } from "next-mdx-remote-client/rsc";
 import { PatternDiagram } from "@/components/PatternDiagram";
+import { OpenTwinButton } from "@/components/twin/OpenTwinButton";
 
 /** Components MDX bodies may use by name. */
-const MDX_COMPONENTS: MDXComponents = { PatternDiagram };
+const MDX_COMPONENTS: MDXComponents = { PatternDiagram, OpenTwinButton };
 
 /**
  * Renders an MDX body to a React element at build time. A syntax error in

@@ -1,3 +1,5 @@
+import { OpenTwinButton } from "@/components/twin/OpenTwinButton";
+
 export function SiteFooter() {
   return (
     <footer className="site-footer">
@@ -20,7 +22,7 @@ export function SiteFooter() {
           >
             GitHub
           </a>
-          <span className="mono">Email: ask the twin</span>
+          <OpenTwinButton className="mono">Ask the twin</OpenTwinButton>
         </div>
       </div>
     </footer>
