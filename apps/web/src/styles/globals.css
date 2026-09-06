@@ -137,6 +137,18 @@ button:focus-visible {
   gap: var(--space-3);
 }
 
+/* The footer's "Ask the twin" is a button that reads like its neighbouring links. */
+.site-footer__links button.mono {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.site-footer__links button.mono:hover {
+  text-decoration: underline;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -311,12 +323,16 @@ button:focus-visible {
   margin-top: var(--space-2);
 }
 
+/* In-text links carry an underline so colour is not their only cue (WCAG 1.4.1). */
 .prose a {
   color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  text-underline-offset: 0.15em;
 }
 
 .prose a:hover {
-  text-decoration: underline;
+  text-decoration-color: var(--accent);
 }
 
 .prose code {
@@ -459,6 +475,13 @@ button:focus-visible {
 
 .identity__line a {
   color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  text-underline-offset: 0.15em;
+}
+
+.identity__line a:hover {
+  text-decoration-color: var(--accent);
 }
 
 .gallery {
