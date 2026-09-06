@@ -145,3 +145,18 @@ button:focus-visible {
     transition: none !important;
   }
 }
+
+/* Pattern diagrams draw in on tile hover or focus */
+@keyframes draw {
+  from {
+    stroke-dashoffset: 400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.tile:hover .draw,
+.tile:focus-within .draw {
+  animation: draw var(--t-draw) var(--ease);
+}
