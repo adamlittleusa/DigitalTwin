@@ -131,6 +131,11 @@ def test_rules_require_a_real_email_before_recording() -> None:
     assert "only after they have actually given you an email address" in pm.RULES
 
 
+def test_rules_do_not_record_answered_questions() -> None:
+    assert "only when the sections above give you nothing to answer the question with" in pm.RULES
+    assert "answer it and record nothing" in pm.RULES
+
+
 def test_project_sections_carry_a_slug_attribute() -> None:
     files = (
         KnowledgeFile(
