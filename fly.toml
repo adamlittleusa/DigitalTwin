@@ -1,6 +1,6 @@
 # Fly.io configuration for the twin API. The build context is this directory, the repo root.
 app = "adambuilds-twin"
-primary_region = "bos"
+primary_region = "ewr"
 
 [build]
   dockerfile = "apps/twin/Dockerfile"
