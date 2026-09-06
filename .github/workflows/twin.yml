@@ -1,0 +1,51 @@
+name: twin
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "apps/twin/**"
+      - "knowledge/**"
+      - "evals/**"
+      - "fly.toml"
+      - ".dockerignore"
+      - ".github/workflows/twin.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/twin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.13"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run pytest --cov=twin
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: twin-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only --ha=false
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Smoke the public URL
+        run: |
+          # The same four locations the Dockerfile copies; a new top-level knowledge directory must be added to both.
+          expected=$(ls knowledge/*.md knowledge/roles/*.md knowledge/topics/*.md knowledge/projects/*.md | grep -v -i readme | wc -l)
+          body=$(curl -fsS --retry 6 --retry-delay 10 --retry-all-errors https://api.adambuilds.ai/v1/health)
+          echo "$body"
+          echo "$body" | grep -q '"status":"ok"'
+          echo "$body" | grep -q "\"knowledge_files\":$expected"
