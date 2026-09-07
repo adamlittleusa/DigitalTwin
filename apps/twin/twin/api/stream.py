@@ -23,6 +23,13 @@ _END = object()
 
 
 class AgentStream:
+    """Bridge a synchronous event generator to the HTTP service's async iteration.
+
+    The worker thread runs blocking model/tool work. An async queue lets the HTTP task
+    wait for events without doing that blocking work on the server's event loop.
+    Disconnecting the consumer does not cancel the worker or its remaining tool calls.
+    """
+
     def __init__(self, turn: Callable[[], Iterator[AgentEvent]]) -> None:
         self._turn = turn
 
@@ -32,6 +39,8 @@ class AgentStream:
 
         def put(item: object) -> None:
             try:
+                # asyncio.Queue belongs to the event-loop thread. Schedule its write
+                # there instead of modifying the queue directly from the worker thread.
                 loop.call_soon_threadsafe(queue.put_nowait, item)
             except RuntimeError:  # the loop is gone because the response already ended; the turn still completes
                 pass
@@ -45,6 +54,8 @@ class AgentStream:
                 put(Error("internal", "Something went wrong on our side."))
                 put(Done(FALLBACK_REPLY, (), 0, None))
             finally:
+                # This private sentinel means no more events will arrive. It is not
+                # a Done event and is never serialized or displayed to the visitor.
                 put(_END)
 
         threading.Thread(target=worker, name="twin-agent-turn", daemon=True).start()

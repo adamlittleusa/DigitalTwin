@@ -2,6 +2,9 @@
  * Pure state/reducer module for the twin chat panel. No DOM, no fetch, no
  * storage access here — see `storage.ts` for persistence and the dock
  * component for wiring this reducer to the network and to `window` events.
+ * A reducer takes the previous state and an action and returns the next state.
+ * Keeping those transitions separate from network work lets tests check UI
+ * behavior using ordinary values, without rendering a page or calling the API.
  */
 
 export type Role = "user" | "assistant";

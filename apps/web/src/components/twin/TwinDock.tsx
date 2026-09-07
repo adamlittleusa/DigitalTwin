@@ -44,6 +44,16 @@ function toChatMessages(state: TwinState): ChatMessage[] {
   return state.messages.map(({ role, text }) => ({ role, text }));
 }
 
+/**
+ * Coordinate the browser side of a turn: accept a question, send the transcript,
+ * feed streamed events into the reducer, and persist the conversation in session
+ * storage. Rendering is delegated to TwinPanel and its child components.
+ *
+ * Follow handleSend -> runTurn -> streamChat in twin/api.ts, then the frame
+ * callback back into twin/state.ts to trace a question through the frontend.
+ * Aborting fetch stops this browser's stream; it does not guarantee cancellation
+ * of the Python worker or a notification already in progress on the server.
+ */
 export function TwinDock() {
   const [state, dispatch] = useReducer(reducer, initialState);
   // Mirrored in a layout effect, which commits synchronously before any

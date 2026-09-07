@@ -34,6 +34,13 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    """Validate the browser transcript and separate its latest question from history.
+
+    Unlike ordinary Python type hints, Pydantic performs runtime validation here.
+    Only alternating user/assistant messages are accepted, so the visitor cannot supply
+    a system-role message. Valid structure does not establish that the text is truthful.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     conversation_id: str | None = Field(default=None, pattern=CONVERSATION_ID_PATTERN)
