@@ -1,4 +1,10 @@
-"""The events a turn of the agent produces, in the order it produces them."""
+"""Named data objects describing progress and results from an agent turn.
+
+The agent yields these objects; the CLI can display them directly, while api/sse.py
+selects visitor-facing fields and serializes them. A Delta is a piece of reply text,
+not a whole message. Done summarizes the turn, including any tool/model rounds.
+Dataclasses give fields names and annotations; they do not themselves send anything.
+"""
 
 from __future__ import annotations
 

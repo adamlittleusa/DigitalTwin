@@ -93,7 +93,12 @@ class RateLimiter:
 
 
 class DailyBudget:
-    """Counts model calls per UTC day. remaining() is for the request boundary; take() only records."""
+    """Count model calls per UTC day for request admission, not as a hard spending ceiling.
+
+    The route checks remaining() before starting a turn; take() records each model round
+    without rejecting it. Already accepted turns can exceed the threshold. Counts are
+    process-local and reset on restart; they measure calls, not tokens or dollars.
+    """
 
     def __init__(self, limit: int, clock: Clock) -> None:
         self._limit = limit
@@ -103,11 +108,13 @@ class DailyBudget:
         self._count = 0
 
     def remaining(self) -> int:
+        """Return the nonnegative admission allowance after checking for a new UTC day."""
         with self._lock:
             self._roll()
             return max(0, self._limit - self._count)
 
     def take(self) -> None:
+        """Count a model-call attempt without reserving capacity or enforcing the limit."""
         with self._lock:
             self._roll()
             self._count += 1

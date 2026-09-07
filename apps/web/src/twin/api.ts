@@ -70,6 +70,18 @@ function toWire(messages: ChatMessage[]): WireMessage[] {
   return messages.map(({ role, text }) => ({ role, content: text }));
 }
 
+/**
+ * Send the conversation and deliver each received SSE frame to onFrame.
+ * Convert UI messages from `text` to the API's `content` field before sending.
+ *
+ * Network chunks are arbitrary pieces of bytes, not complete messages. The
+ * streaming decoder and SSE parser rebuild frames before invoking the callback.
+ * The caller parses each frame's JSON and updates the UI state.
+ *
+ * Throws ChatHttpError for unsuccessful HTTP responses. Network failures and
+ * cancellation can also reject the promise. Resolution only means the stream
+ * ended; the caller separately checks whether a `done` frame arrived.
+ */
 export async function streamChat(
   base: string,
   messages: ChatMessage[],

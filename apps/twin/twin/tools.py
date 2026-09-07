@@ -1,4 +1,11 @@
-"""The twin's tools: schemas the model sees, handlers, notifiers, and dispatch."""
+"""Describe available actions to the model and execute its requests locally.
+
+The schemas below are handwritten Chat Completions tool dictionaries. Their descriptions
+are sent to the model; Python docstrings are for developers and do not generate these
+schemas. The separate OpenAI Agents SDK can create FunctionTool objects with
+@function_tool, deriving schemas and descriptions from annotations and docstrings.
+This implementation instead owns that schema and dispatch work explicitly.
+"""
 
 from __future__ import annotations
 
@@ -122,6 +129,12 @@ TOOL_SCHEMAS: Final[tuple[dict[str, Any], ...]] = (
 
 
 class Notifier(Protocol):
+    """The push interface needed by tools, regardless of the delivery implementation.
+
+    A Protocol describes required behavior without requiring shared inheritance.
+    Production can send a push; tests can supply an object that only records messages.
+    """
+
     def push(self, text: str) -> None: ...
 
 
@@ -168,6 +181,8 @@ def is_failure(result: str) -> bool:
 
 
 class ToolRegistry(Protocol):
+    """Expose model-facing schemas and a local way to call the named handlers."""
+
     @property
     def schemas(self) -> tuple[dict[str, Any], ...]: ...
 
@@ -192,12 +207,28 @@ class TwinTools:
         return TOOL_SCHEMAS
 
     def call(self, name: str, arguments: dict[str, Any]) -> str:
+        """Select a registered handler and unpack JSON fields into its keyword arguments.
+
+        Only names in the registry can run. Argument errors propagate to dispatch(),
+        which turns them into tool-result messages rather than executing arbitrary code.
+        """
         handler = self._handlers.get(name)
         if handler is None:
             return f"{UNKNOWN_TOOL_PREFIX}: {name}"
         return handler(**arguments)
 
     def record_user_details(self, email: str, name: str = "", notes: str = "") -> str:
+        """Notify Adam that a visitor supplied contact details for follow-up.
+
+        Args:
+            email: Address supplied by the visitor; ownership is not verified here.
+            name: Optional visitor name.
+            notes: Optional context to help Adam follow up.
+
+        Cleans and truncates fields before passing them to the notifier. No contact
+        database record is created. Returns the notifier outcome from _notify(); an
+        OK result is not a guarantee that a push reached Adam's device.
+        """
         return self._notify(
             "New contact\n"
             f"name: {_field(name, FIELD_LIMITS['name']) or '(not provided)'}\n"
@@ -206,12 +237,19 @@ class TwinTools:
         )
 
     def record_unknown_question(self, question: str) -> str:
+        """Notify Adam of a knowledge gap; this does not update the knowledge files."""
         return self._notify(f"Question I couldn't answer\nquestion: {_field(question, FIELD_LIMITS['question'])}")
 
     def record_sensitive_question(self, question: str) -> str:
+        """Flag a question for Adam to handle personally, using the configured notifier."""
         return self._notify(f"Sensitive question deflected\nquestion: {_field(question, FIELD_LIMITS['question'])}")
 
     def show_project(self, slug: str) -> str:
+        """Look up a known project and return a success or failure marker to the model.
+
+        The agent emits the actual Project event after a successful lookup. This handler
+        does not render HTML or navigate the browser; the frontend renders the event.
+        """
         if not isinstance(slug, str):
             slug = ""
         cleaned_slug = _field(slug, FIELD_LIMITS["slug"])
@@ -223,6 +261,11 @@ class TwinTools:
         return f"Shown: {card.title}"
 
     def _notify(self, text: str) -> str:
+        """Translate notification exceptions into the failure marker the agent understands.
+
+        OK means push() returned normally. A logging notifier or an hourly-cap decision
+        can also return normally without sending a push notification.
+        """
         try:
             self._notifier.push(text)
         except Exception:
@@ -252,11 +295,20 @@ class RecordingTools:
 
 
 def dispatch(tools: ToolRegistry, tool_calls: Iterable[Any]) -> list[dict[str, Any]]:
-    """Run each tool call the model asked for and return the tool messages to send back."""
+    """Execute assembled tool calls sequentially and return messages for the next model round.
+
+    These are requests produced by the model, not executable source code. _run_one()
+    parses each argument object and preserves its call ID in the result message.
+    """
     return [_run_one(tools, call) for call in tool_calls]
 
 
 def _run_one(tools: ToolRegistry, call: Any) -> dict[str, Any]:
+    """Parse one request, invoke its handler, and package the result or caught error.
+
+    JSON parsing and the object check validate basic structure, not every schema field
+    or Python annotation. The selected handler receives the parsed keyword arguments.
+    """
     call_id = getattr(call, "id", None) or ""
     name = "<unknown>"
     raw_arguments: Any = None

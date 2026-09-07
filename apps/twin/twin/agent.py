@@ -1,4 +1,9 @@
-"""The chat-completions loop as a stream of events: ask the model, run any tools it asks for, repeat, bounded."""
+"""Run the twin's custom model/tool loop using the OpenAI Python SDK.
+
+The model requests actions; tools.py executes them locally. This module feeds the
+results back to the model and yields progress events for the CLI or HTTP service.
+It uses Chat Completions directly, not the separate Agents SDK's Agent and Runner.
+"""
 
 from __future__ import annotations
 
@@ -66,6 +71,12 @@ class _Round:
 
 
 class TwinAgent:
+    """Coordinate one question using a supplied model client, prompt, and tool registry.
+
+    Client and message boundaries currently use Any to accommodate SDK objects and
+    test substitutes. Those annotations do not describe or validate their full shape.
+    """
+
     def __init__(
         self,
         client: Any,
@@ -96,7 +107,21 @@ class TwinAgent:
         return reply
 
     def run(self, history: list[dict[str, Any]], message: str) -> Iterator[AgentEvent]:
-        """One turn as a stream of events. Exactly one Done, always last; never raises."""
+        """Process a visitor question and yield progress, text, and result events.
+
+        Args:
+            history: Earlier conversation messages in OpenAI's message format.
+            message: The latest question, separate from history.
+
+        Yields:
+            AgentEvent values as work progresses, ending normally with Done. Exceptions
+            caught inside the model/tool loop produce Error followed by Done, preserving
+            any text already streamed. Consumer cancellation can end iteration earlier.
+
+        Iterating performs model calls and executes requested tools, some of which send
+        notifications. Creating this generator alone does not start that work. Allow five
+        tool-enabled model rounds, then one final round with tool use disabled.
+        """
         messages: list[Any] = [
             {"role": "system", "content": self._system_prompt},
             *history,
@@ -112,6 +137,8 @@ class TwinAgent:
             for round_number in range(1, MAX_TOOL_ROUNDS + 1):
                 yield Step("thinking", round_number)
                 rounds += 1
+                # Forward the helper's yielded events to our caller, then capture its
+                # returned summary. The summary itself is not another event for the UI.
                 round_ = yield from self._stream_round(messages, "auto", round_number, composing, buffer)
                 composing = round_.composing
                 usage = _add_usage(usage, round_.usage)
@@ -132,6 +159,9 @@ class TwinAgent:
                     if card is not None and card.slug not in shown:
                         shown.add(card.slug)
                         yield Project(card.slug, card.title, card.summary, card.url)
+                # Give the model both its request and our results. Each tool_call_id
+                # connects a result to the request it answers. These messages stay within
+                # this turn; the browser keeps only the conversational transcript.
                 messages = [*messages, _assistant_message(round_), *results]
             log.warning("Tool round cap of %d reached; asking for a final answer without tools.", MAX_TOOL_ROUNDS)
             yield Step("thinking", MAX_TOOL_ROUNDS + 1)
@@ -155,6 +185,8 @@ class TwinAgent:
         """Stream one model call, yielding composing and delta events; returns the round's summary.
 
         Delta text is appended to `buffer` as it is yielded so a failure mid-stream loses nothing.
+        Generator[AgentEvent, None, _Round] describes yielded events, values sent into the
+        generator (unused here), and the final returned summary, respectively.
         """
         if self._budget is not None:
             self._budget.take()
@@ -228,7 +260,12 @@ def _close(stream: Any) -> None:
 
 
 def _absorb(parts: dict[int, dict[str, str]], fragment: Any) -> None:
-    """Merge one streamed tool-call fragment into the accumulator for its index."""
+    """Collect a tool-call fragment without parsing its still-incomplete JSON arguments.
+
+    A call can span many model chunks. Index keeps separate calls from mixing; the
+    dispatcher parses the assembled argument text after the model stream finishes.
+    Mutates parts in place so the next fragment continues the same accumulation.
+    """
     slot = parts.setdefault(getattr(fragment, "index", 0), {"id": "", "name": "", "arguments": ""})
     call_id = getattr(fragment, "id", None)
     if call_id:

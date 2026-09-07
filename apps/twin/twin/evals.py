@@ -1,4 +1,10 @@
-"""Eval cases: what the twin must and must not say, and the checks that decide it."""
+"""Load evaluation cases and check replies against their explicit expectations.
+
+These checks inspect selected words, phrases, lengths, and tool calls. They provide
+regression signals, not proof of complete factual accuracy or voice fidelity. Human
+review still matters. Loading/checking a case here is separate from calling the live
+model in integration tests; ordinary unit tests can use fixed replies and fake tools.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,9 @@
-"""One place that assembles the twin: settings, knowledge, prompt, notifier, client, limits, agent."""
+"""Assemble the dependencies used by both the command-line twin and the HTTP service.
+
+Start reading here: load_runtime() prepares the shared equipment, then build_agent()
+supplies it to a fresh agent for a turn. Follow knowledge.py and prompt.py for context
+assembly, tools.py for actions, and agent.py for the model/tool execution loop.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +29,12 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class Runtime:
+    """Shared settings and services, including mutable limits and the model client.
+
+    frozen=True prevents replacing fields; it does not freeze the objects inside
+    them. In particular, the rate limiter and budget still update their counters.
+    """
+
     settings: Settings
     knowledge: Knowledge
     catalog: ProjectCatalog
@@ -43,7 +54,21 @@ def load_runtime(
     client: Any | None = None,
     clock: Clock | None = None,
 ) -> Runtime:
-    """The single startup path. Raises TwinError subclasses; callers print one line and exit."""
+    """Read configuration and knowledge, then assemble the dependencies for agent turns.
+
+    Args:
+        env: Optional settings mapping; otherwise use the process environment.
+        client: Optional replacement for the OpenAI client, useful for fake responses in tests.
+        clock: Optional clock so tests can advance time without actually waiting.
+
+    Returns:
+        Runtime holding the prompt, project catalog, client, notifier, and shared limits.
+
+    Configuration and knowledge errors stop startup. Reading the files and creating
+    the client here does not itself send a question to the model. Supplying dependencies
+    from outside is called dependency injection: the same agent can use real services
+    in production and controlled substitutes in tests.
+    """
     settings = Settings.from_env(env)
     knowledge = load_knowledge(settings.knowledge_dir)
     catalog = ProjectCatalog.from_knowledge(knowledge, settings.site_url)
@@ -81,7 +106,11 @@ def build_agent(
     tools: ToolRegistry | None = None,
     safety_identifier: str | None = None,
 ) -> TwinAgent:
-    """A fresh agent for one turn or one request."""
+    """Create a fresh agent using the shared runtime and an optional replacement tool registry.
+
+    Conversation messages are supplied later to run(); the agent does not load a
+    server-side conversation database. The client and limits remain shared across turns.
+    """
     registry = tools if tools is not None else TwinTools(runtime.notifier, catalog=runtime.catalog)
     return TwinAgent(
         runtime.client,

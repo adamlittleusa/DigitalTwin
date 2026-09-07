@@ -1,4 +1,10 @@
-"""Load, validate, and order the markdown files that make up the twin's knowledge."""
+"""Load, validate, and order the Markdown files that make up the twin's knowledge.
+
+prompt.py embeds these documents whole in the system prompt; no per-question vector
+search chooses passages. Keep sensitive material out of the loaded files entirely.
+public=True is required here; reviewed metadata is normalized when supplied, while
+tests/test_knowledge_reviewed.py checks that the repository's knowledge was reviewed.
+"""
 
 from __future__ import annotations
 
