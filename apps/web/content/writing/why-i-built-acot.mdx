@@ -1,0 +1,22 @@
+---
+title: Why I built ACOT
+date: 2026-09-08
+summary: How a conversation about threat detection led me to rethink AI agent identity.
+draft: false
+---
+
+In late 2025, I was sitting in on a conversation about the difficulties of tracking AI agent identity from a threat detection perspective. A lot of it sounded familiar. It reminded me of the challenges of tracking the proxy servers attackers hide behind and the command-and-control infrastructure they use to direct their operations. I'm not sure exactly why I thought of these two things together, iy just happened. I guess today you would say it was in my "J-space".
+
+That got me thinking about JA3 and [JA4 fingerprinting](https://github.com/FoxIO-LLC/ja4), methods that help defenders fingerprint malicious TLS and actor infrastructure. I wondered whether a similar approach could give us more useful signals about agents.
+
+What mattered to me was giving defenders a more exact place to look. Telling someone that something is wrong with an agent leaves a lot of work to do. The model could have changed. Its instructions could have been altered, or it could have gained access to a tool it was never supposed to use. The agent's name and login might stay the same through all of that.
+
+Working through that problem led to my whitepaper, *Identity by Configuration*. I organized the idea around an agent's brain, persona, and hands. The brain is the model powering it. The persona is its instructions and boundaries, and is probably more well known as "intent" at runtime. The hands are the tools and information it can reach. Recording those parts separately gives defenders a way to narrow down what changed. This enabled defenders to do a more deterministic set of checks on something that is probabalistic by its nature.
+
+The proposal developed into a declared configuration linked to a signed credential. The Agent Manifest, or A-MAN, records the composition. The Agent Identity Fingerprint, or AIF, binds a credential to that record so a verifier can detect a mismatch. Network fingerprinting inspired the approach, while the design adds an explicit record that systems can check.
+
+I built [ACOT, the Agent Core Open Toolkit](https://github.com/adamlittleusa/ACOT), to start putting that idea into practice. It creates manifests and signs and checks credentials. A simulated company environment demonstrates a gateway blocking invalid identities and altered manifests.
+
+A signed declaration alone cannot prove which model actually ran or guarantee good decisions. The whitepaper explores stronger verification. ACOT gives me a starting point for testing the identity checks and making the information useful to defenders.
+
+For the full proposal, [download Identity by Configuration, version 3.1 (Word)](https://adambuilds.ai/resources/acot/Identity_by_Configuration_V3.1_March2026.docx). The [architecture figures (PowerPoint)](https://adambuilds.ai/resources/acot/AIF_Patent_Figures.pptx) walk through how the proposed pieces fit together.
